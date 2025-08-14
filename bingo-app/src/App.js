@@ -130,20 +130,24 @@ const App = () => {
 
   // Effect to check for a win whenever the squares change
   useEffect(() => {
-    if (isEditing || !squares.length) return;
+    if (!FEATURES.WIN_DETECTION_ENABLED) return;
+
+    if (isEditing || !squares.length) {
+      setWinningLines([]);
+      setWinningSquareIndices(new Set());
+      return;
+    }
 
     const currentWinningLines = checkWin(squares, boardSize);
-    if (currentWinningLines.length > winningLines.length) {
-      // A new line has been made
+    const allCurrentWinningIndices = new Set(currentWinningLines.flat());
+    setWinningSquareIndices(allCurrentWinningIndices);
+
+    const currentWinningLineIds = currentWinningLines.map(line => line.sort().join('-'));
+    const newLinesFound = currentWinningLineIds.filter(id => !winningLines.includes(id));
+
+    if (newLinesFound.length > 0) {
       setShowConfetti(true);
-      setTimeout(() => setShowConfetti(false), 5000); // Confetti for 5 seconds
-
-      const newWinningLines = currentWinningLines.map(line => line.sort().join('-'));
-      setWinningLines(newWinningLines);
-
-      const allWinningIndices = new Set(currentWinningLines.flat());
-      setWinningSquareIndices(allWinningIndices);
-
+      setWinningLines(prev => [...prev, ...newLinesFound]);
       setMessage('BINGO!');
       setTimeout(() => setMessage(''), 3000);
     }
