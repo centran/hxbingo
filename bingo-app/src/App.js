@@ -1,7 +1,27 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragOverlay,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  rectSortingStrategy,
+} from '@dnd-kit/sortable';
+import pako from 'pako';
+
+import { FEATURES } from './config';
+import { SortableSquare } from './SortableSquare';
+import { Square } from './Square'; // We'll create a simple static square component
 
 const App = () => {
+  const fileInputRef = useRef(null);
   // State for the board's dimensions
   const [boardSize, setBoardSize] = useState({ rows: 5, cols: 5 });
   // State for the squares, each with text and marked status
@@ -30,12 +50,23 @@ const App = () => {
   const [apiKey, setApiKey] = useState('');
   // State to track if the AI is generating content
   const [isLoading, setIsLoading] = useState(false);
+  const [activeId, setActiveId] = useState(null);
+  const [saveLoadString, setSaveLoadString] = useState('');
+  const [isGeneratorOpen, setIsGeneratorOpen] = useState(false);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   // Function to create a new board with default text
   const initializeBoard = useCallback(() => {
     const newSquares = [];
     for (let i = 0; i < boardSize.rows * boardSize.cols; i++) {
       newSquares.push({
+        id: i + 1,
         text: `Square ${i + 1}`,
         isMarked: false,
       });
@@ -90,6 +121,15 @@ const App = () => {
     }
   };
 
+  const handleRemoveImage = () => {
+    setBingoImage(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = null;
+    }
+    setMessage('Marker image removed!');
+    setTimeout(() => setMessage(''), 3000);
+  };
+
   // Function to toggle the marked status of a square
   const toggleMarked = (index) => {
     if (!isEditing) {
@@ -121,7 +161,7 @@ const App = () => {
     setMessage('Generating squares...');
 
     const prompt = `Generate a list of exactly ${boardSize.rows * boardSize.cols} items related to '${bingoTopic}'. The items should be single-word or short phrases, suitable for a BINGO card. The output should be a JSON array of strings. Do not include any text before or after the JSON.`;
-    
+
     let chatHistory = [];
     chatHistory.push({ role: "user", parts: [{ text: prompt }] });
 
@@ -153,10 +193,11 @@ const App = () => {
 
         const result = await response.json();
         const jsonText = result?.candidates?.[0]?.content?.parts?.[0]?.text;
-        
+
         if (jsonText) {
             const generatedItems = JSON.parse(jsonText);
-            const newSquares = generatedItems.slice(0, boardSize.rows * boardSize.cols).map(item => ({
+            const newSquares = generatedItems.slice(0, boardSize.rows * boardSize.cols).map((item, index) => ({
+                id: index + 1,
                 text: item,
                 isMarked: false,
             }));
@@ -175,21 +216,80 @@ const App = () => {
     }
   };
 
-  const handleOnDragEnd = (result) => {
-    if (!result.destination || !isEditing) {
+  function handleDragStart(event) {
+    setActiveId(event.active.id);
+  }
+
+  function handleDragEnd(event) {
+    const { active, over } = event;
+
+    if (active.id !== over.id) {
+      setSquares((items) => {
+        const oldIndex = items.findIndex((item) => item.id === active.id);
+        const newIndex = items.findIndex((item) => item.id === over.id);
+        return arrayMove(items, oldIndex, newIndex);
+      });
+    }
+    setActiveId(null);
+  }
+
+  const toBase64 = (arr) => btoa(String.fromCharCode.apply(null, arr));
+  const fromBase64 = (str) => new Uint8Array(atob(str).split('').map(c => c.charCodeAt(0)));
+
+  const handleSave = () => {
+    const saveData = {
+      boardSize,
+      squares,
+      colors,
+      bingoImage,
+      overlayOpacity,
+    };
+    try {
+      const jsonString = JSON.stringify(saveData);
+      const compressed = pako.deflate(jsonString);
+      const encoded = toBase64(compressed);
+      setSaveLoadString(encoded);
+      setMessage('Board saved to text box!');
+    } catch (error) {
+      console.error("Failed to save board:", error);
+      setMessage('Could not save board.');
+    }
+    setTimeout(() => setMessage(''), 3000);
+  };
+
+  const handleLoad = () => {
+    if (!saveLoadString) {
+      setMessage('Please paste a save code first.');
+      setTimeout(() => setMessage(''), 3000);
       return;
     }
+    try {
+      const decoded = fromBase64(saveLoadString);
+      const decompressed = pako.inflate(decoded, { to: 'string' });
+      const loadedData = JSON.parse(decompressed);
 
-    const items = Array.from(squares);
-    const [reorderedItem] = items.splice(result.source.index, 1);
-    items.splice(result.destination.index, 0, reorderedItem);
-
-    setSquares(items);
+      if (loadedData.boardSize && loadedData.squares && loadedData.colors) {
+        setBoardSize(loadedData.boardSize);
+        setSquares(loadedData.squares);
+        setColors(loadedData.colors);
+        setBingoImage(loadedData.bingoImage || null);
+        setOverlayOpacity(loadedData.overlayOpacity || 0.8);
+        setMessage('Board loaded successfully!');
+      } else {
+        throw new Error("Invalid save data structure.");
+      }
+    } catch (error) {
+      console.error("Failed to load board:", error);
+      setMessage('Could not load board. The code is invalid.');
+    }
+    setTimeout(() => setMessage(''), 3000);
   };
+
+  const getSquareById = (id) => squares.find(s => s.id === id);
 
   return (
     <div className="min-h-screen p-8 flex flex-col items-center font-sans" style={{ backgroundColor: colors.boardBg }}>
-      
+
       <div className="flex flex-col gap-6 md:flex-row md:justify-center w-full max-w-7xl mb-8">
         {/* Board Controls */}
         <div className="bg-white p-6 rounded-2xl shadow-xl border border-gray-200">
@@ -223,6 +323,24 @@ const App = () => {
           >
             Shuffle Board
           </button>
+          <hr className="my-4" />
+          <div>
+            <h3 className="text-lg font-bold mb-2">💾 Save/Load Board</h3>
+            <textarea
+              className="w-full h-24 p-2 border border-gray-300 rounded-md shadow-sm"
+              placeholder="Copy code from here, or paste code to load."
+              value={saveLoadString}
+              onChange={(e) => setSaveLoadString(e.target.value)}
+            />
+            <div className="flex gap-4 mt-2">
+              <button onClick={handleSave} className="w-full py-2 px-4 rounded-lg font-bold shadow-md text-sm" style={{ backgroundColor: colors.buttonBg, color: colors.buttonText }}>
+                Save to Text Box
+              </button>
+              <button onClick={handleLoad} className="w-full py-2 px-4 rounded-lg font-bold shadow-md text-sm" style={{ backgroundColor: colors.buttonBg, color: colors.buttonText }}>
+                Load from Text Box
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Customization Controls */}
@@ -242,18 +360,22 @@ const App = () => {
             <div>
               <label className="block text-sm font-medium text-gray-700">Text Color</label>
               <input type="color" name="squareText" value={colors.squareText} onChange={handleColorChange} className="w-full h-8" />
+              <button onClick={() => setColors(prev => ({ ...prev, squareText: 'transparent' }))} className="text-xs text-gray-500 hover:text-gray-700 mt-1">Set Transparent</button>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">Border Color</label>
               <input type="color" name="squareBorder" value={colors.squareBorder} onChange={handleColorChange} className="w-full h-8" />
+              <button onClick={() => setColors(prev => ({ ...prev, squareBorder: 'transparent' }))} className="text-xs text-gray-500 hover:text-gray-700 mt-1">Set Transparent</button>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">Button BG</label>
               <input type="color" name="buttonBg" value={colors.buttonBg} onChange={handleColorChange} className="w-full h-8" />
+              <button onClick={() => setColors(prev => ({ ...prev, buttonBg: 'transparent' }))} className="text-xs text-gray-500 hover:text-gray-700 mt-1">Set Transparent</button>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">Marker Overlay</label>
               <input type="color" name="markedOverlay" value={colors.markedOverlay} onChange={handleColorChange} className="w-full h-8" />
+              <button onClick={() => setColors(prev => ({ ...prev, markedOverlay: 'transparent' }))} className="text-xs text-gray-500 hover:text-gray-700 mt-1">Set Transparent</button>
             </div>
           </div>
           <div className="mt-4">
@@ -276,12 +398,18 @@ const App = () => {
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Upload Marker Image
           </label>
-          <input
-            type="file"
-            onChange={handleImageUpload}
-            accept="image/*"
-            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"
-          />
+          <div className="flex items-center gap-2">
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleImageUpload}
+              accept="image/*"
+              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"
+            />
+            {bingoImage && (
+              <button onClick={handleRemoveImage} className="text-sm text-red-500 hover:text-red-700">Remove</button>
+            )}
+          </div>
           <button
             onClick={() => setIsEditing(!isEditing)}
             style={{ backgroundColor: colors.buttonBg, color: colors.buttonText }}
@@ -294,12 +422,16 @@ const App = () => {
 
       {/* Gemini API Feature */}
       <div className="bg-white p-6 rounded-2xl shadow-xl border border-gray-200 w-full max-w-7xl mb-8">
-        <h2 className="text-xl font-bold mb-4">✨ Generate Board Content</h2>
-        <div className="space-y-4">
-            <div>
-                <label className="block text-sm font-medium text-gray-700">
-                    Your Gemini API Key
-                </label>
+        <h2 className="text-xl font-bold mb-4 flex justify-between items-center cursor-pointer" onClick={() => setIsGeneratorOpen(!isGeneratorOpen)}>
+          <span>✨ Generate Board Content</span>
+          <svg className={`w-6 h-6 transition-transform ${isGeneratorOpen ? 'transform rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+        </h2>
+        {isGeneratorOpen && (
+          <div className="space-y-4 mt-4">
+              <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                      Your Gemini API Key
+                  </label>
                 <input
                     type="password"
                     value={apiKey}
@@ -329,10 +461,11 @@ const App = () => {
             >
                 {isLoading ? 'Generating...' : '✨ Generate BINGO Squares'}
             </button>
-        </div>
-        </div>
+            </div>
+          </div>
+        )}
       </div>
-      
+
       {message && (
         <div className="fixed top-4 right-4 bg-green-500 text-white py-2 px-4 rounded-xl shadow-lg transition-transform duration-300">
           {message}
@@ -340,88 +473,69 @@ const App = () => {
       )}
 
       {/* The BINGO Board */}
-      <DragDropContext onDragEnd={handleOnDragEnd}>
-        <Droppable droppableId="bingo-board">
-          {(provided) => (
-            <div
-              {...provided.droppableProps}
-              ref={provided.innerRef}
-              className="bingo-board flex flex-wrap p-4 rounded-2xl shadow-xl border-4"
-              style={{
-                borderColor: colors.squareBorder,
-                backgroundColor: colors.boardBg,
-                aspectRatio: `${boardSize.cols} / ${boardSize.rows}`,
-                width: '100%',
-                maxWidth: '800px',
-              }}
-            >
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+      >
+        <div
+          className="bingo-board flex flex-wrap p-4 rounded-2xl shadow-xl border-4"
+          style={{
+            borderColor: colors.squareBorder,
+            backgroundColor: colors.boardBg,
+            width: '100%',
+            maxWidth: '800px',
+          }}
+        >
+          {FEATURES.DND_ENABLED && isEditing ? (
+            <SortableContext items={squares.map(s => s.id)} strategy={rectSortingStrategy}>
               {squares.map((square, index) => (
-                <Draggable key={index} draggableId={String(index)} index={index} isDragDisabled={!isEditing}>
-                  {(provided) => (
-                    <div
-                      ref={provided.innerRef}
-                      {...provided.draggableProps}
-                      onClick={() => toggleMarked(index)}
-                      style={{
-                        ...provided.draggableProps.style,
-                        boxSizing: 'border-box',
-                        width: `calc(100% / ${boardSize.cols})`,
-                        height: `calc(100% / ${boardSize.rows})`,
-                        padding: '0.25rem',
-                      }}
-                    >
-                      <div
-                        style={{
-                            backgroundColor: colors.squareBg,
-                            borderColor: colors.squareBorder,
-                            color: colors.squareText,
-                            backgroundImage: square.isMarked && bingoImage ? `url(${bingoImage})` : 'none',
-                            backgroundSize: 'cover',
-                            backgroundPosition: 'center',
-                            backgroundBlendMode: 'overlay',
-                            width: '100%',
-                            height: '100%',
-                        }}
-                        className="relative flex items-center justify-center text-center rounded-lg transition-all duration-200 border-2"
-                      >
-                        {isEditing && (
-                          <div
-                            {...provided.dragHandleProps}
-                            className="absolute top-1 right-1 p-1 cursor-grab rounded-full hover:bg-gray-200"
-                            style={{ color: colors.squareText, zIndex: 20 }}
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="19" r="1"></circle>
-                            </svg>
-                          </div>
-                        )}
-                        {/* Overlay to ensure text is visible when marked */}
-                        {square.isMarked && (
-                            <div
-                                className="absolute inset-0 rounded-lg"
-                                style={{backgroundColor: colors.markedOverlay, opacity: overlayOpacity}}
-                            ></div>
-                        )}
-                        {isEditing ? (
-                          <textarea
-                            className="w-full h-full text-center p-1 bg-transparent resize-none border-none focus:outline-none focus:ring-0"
-                            value={square.text}
-                            onChange={(e) => handleTextChange(index, e)}
-                            style={{ color: colors.squareText }}
-                          />
-                        ) : (
-                          <p className="text-sm font-semibold leading-tight z-10">{square.text}</p>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </Draggable>
+                <SortableSquare
+                  key={square.id}
+                  id={square.id}
+                  square={square}
+                  index={index}
+                  colors={colors}
+                  bingoImage={bingoImage}
+                  overlayOpacity={overlayOpacity}
+                  isEditing={isEditing}
+                  handleTextChange={handleTextChange}
+                  toggleMarked={toggleMarked}
+                  boardSize={boardSize}
+                />
               ))}
-              {provided.placeholder}
-            </div>
+            </SortableContext>
+          ) : (
+            squares.map((square, index) => (
+              <Square
+                key={square.id}
+                square={square}
+                index={index}
+                colors={colors}
+                bingoImage={bingoImage}
+                overlayOpacity={overlayOpacity}
+                isEditing={isEditing}
+                handleTextChange={handleTextChange}
+                toggleMarked={toggleMarked}
+                boardSize={boardSize}
+              />
+            ))
           )}
-        </Droppable>
-      </DragDropContext>
+        </div>
+        <DragOverlay>
+          {activeId ? (
+            <Square
+              square={getSquareById(activeId)}
+              boardSize={boardSize}
+              colors={colors}
+              bingoImage={bingoImage}
+              overlayOpacity={overlayOpacity}
+              isEditing={isEditing}
+            />
+          ) : null}
+        </DragOverlay>
+      </DndContext>
     </div>
   );
 };
