@@ -370,7 +370,6 @@ const App = () => {
               style={{
                 borderColor: colors.squareBorder,
                 backgroundColor: colors.boardBg,
-                aspectRatio: `${boardSize.cols} / ${boardSize.rows}`,
                 width: '100%',
                 maxWidth: '800px',
               }}
@@ -386,7 +385,6 @@ const App = () => {
                         ...provided.draggableProps.style,
                         boxSizing: 'border-box',
                         width: `calc(100% / ${boardSize.cols})`,
-                        height: `calc(100% / ${boardSize.rows})`,
                         padding: '0.25rem',
                       }}
                     >
@@ -400,7 +398,7 @@ const App = () => {
                             backgroundPosition: 'center',
                             backgroundBlendMode: 'overlay',
                             width: '100%',
-                            height: '100%',
+                            aspectRatio: '1 / 1',
                         }}
                         className="relative flex items-center justify-center text-center rounded-lg transition-all duration-200 border-2"
                       >
