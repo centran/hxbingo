@@ -232,10 +232,12 @@ const App = () => {
             <div>
               <label className="block text-sm font-medium text-gray-700">Board BG</label>
               <input type="color" name="boardBg" value={colors.boardBg} onChange={handleColorChange} className="w-full h-8" />
+              <button onClick={() => setColors(prev => ({ ...prev, boardBg: 'transparent' }))} className="text-xs text-gray-500 hover:text-gray-700 mt-1">Set Transparent</button>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">Square BG</label>
               <input type="color" name="squareBg" value={colors.squareBg} onChange={handleColorChange} className="w-full h-8" />
+              <button onClick={() => setColors(prev => ({ ...prev, squareBg: 'transparent' }))} className="text-xs text-gray-500 hover:text-gray-700 mt-1">Set Transparent</button>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">Text Color</label>
@@ -344,11 +346,10 @@ const App = () => {
             <div
               {...provided.droppableProps}
               ref={provided.innerRef}
-              className="bingo-board grid gap-2 p-4 rounded-2xl shadow-xl border-4"
+              className="bingo-board flex flex-wrap p-4 rounded-2xl shadow-xl border-4"
               style={{
                 borderColor: colors.squareBorder,
                 backgroundColor: colors.boardBg,
-                gridTemplateColumns: `repeat(${boardSize.cols}, minmax(0, 1fr))`,
                 aspectRatio: `${boardSize.cols} / ${boardSize.rows}`,
                 width: '100%',
                 maxWidth: '800px',
@@ -360,37 +361,58 @@ const App = () => {
                     <div
                       ref={provided.innerRef}
                       {...provided.draggableProps}
-                      {...provided.dragHandleProps}
                       onClick={() => toggleMarked(index)}
                       style={{
-                        backgroundColor: colors.squareBg,
-                        borderColor: colors.squareBorder,
-                        color: colors.squareText,
-                        backgroundImage: square.isMarked && bingoImage ? `url(${bingoImage})` : 'none',
-                        backgroundSize: 'cover',
-                        backgroundPosition: 'center',
-                        backgroundBlendMode: 'overlay',
                         ...provided.draggableProps.style,
+                        boxSizing: 'border-box',
+                        width: `calc(100% / ${boardSize.cols})`,
+                        height: `calc(100% / ${boardSize.rows})`,
+                        padding: '0.25rem',
                       }}
-                      className="relative flex items-center justify-center text-center p-2 rounded-lg transition-all duration-200 border-2"
                     >
-                      {/* Overlay to ensure text is visible when marked */}
-                      {square.isMarked && (
+                      <div
+                        style={{
+                            backgroundColor: colors.squareBg,
+                            borderColor: colors.squareBorder,
+                            color: colors.squareText,
+                            backgroundImage: square.isMarked && bingoImage ? `url(${bingoImage})` : 'none',
+                            backgroundSize: 'cover',
+                            backgroundPosition: 'center',
+                            backgroundBlendMode: 'overlay',
+                            width: '100%',
+                            height: '100%',
+                        }}
+                        className="relative flex items-center justify-center text-center rounded-lg transition-all duration-200 border-2"
+                      >
+                        {isEditing && (
                           <div
-                              className="absolute inset-0 rounded-lg"
-                              style={{backgroundColor: colors.markedOverlay, opacity: overlayOpacity}}
-                          ></div>
-                      )}
-                      {isEditing ? (
-                        <textarea
-                          className="w-full h-full text-center p-1 bg-transparent resize-none border-none focus:outline-none focus:ring-0"
-                          value={square.text}
-                          onChange={(e) => handleTextChange(index, e)}
-                          style={{ color: colors.squareText }}
-                        />
-                      ) : (
-                        <p className="text-sm font-semibold leading-tight z-10">{square.text}</p>
-                      )}
+                            {...provided.dragHandleProps}
+                            className="absolute top-1 right-1 p-1 cursor-grab rounded-full hover:bg-gray-200"
+                            style={{ color: colors.squareText, zIndex: 20 }}
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="19" r="1"></circle>
+                            </svg>
+                          </div>
+                        )}
+                        {/* Overlay to ensure text is visible when marked */}
+                        {square.isMarked && (
+                            <div
+                                className="absolute inset-0 rounded-lg"
+                                style={{backgroundColor: colors.markedOverlay, opacity: overlayOpacity}}
+                            ></div>
+                        )}
+                        {isEditing ? (
+                          <textarea
+                            className="w-full h-full text-center p-1 bg-transparent resize-none border-none focus:outline-none focus:ring-0"
+                            value={square.text}
+                            onChange={(e) => handleTextChange(index, e)}
+                            style={{ color: colors.squareText }}
+                          />
+                        ) : (
+                          <p className="text-sm font-semibold leading-tight z-10">{square.text}</p>
+                        )}
+                      </div>
                     </div>
                   )}
                 </Draggable>
