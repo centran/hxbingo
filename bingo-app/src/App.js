@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 
 const App = () => {
   // State for the board's dimensions
@@ -21,18 +22,17 @@ const App = () => {
     buttonText: '#ffffff',
     markedOverlay: '#d1d5db',
   });
+  // State for the overlay opacity
+  const [overlayOpacity, setOverlayOpacity] = useState(0.8);
   // State for the user-provided topic for AI-generated squares
   const [bingoTopic, setBingoTopic] = useState('');
+  // State for the user's API key
+  const [apiKey, setApiKey] = useState('');
   // State to track if the AI is generating content
   const [isLoading, setIsLoading] = useState(false);
 
-  // Effect to initialize the board when the component mounts or board size changes
-  useEffect(() => {
-    initializeBoard();
-  }, [boardSize]);
-
   // Function to create a new board with default text
-  const initializeBoard = () => {
+  const initializeBoard = useCallback(() => {
     const newSquares = [];
     for (let i = 0; i < boardSize.rows * boardSize.cols; i++) {
       newSquares.push({
@@ -41,7 +41,12 @@ const App = () => {
       });
     }
     setSquares(newSquares);
-  };
+  }, [boardSize.rows, boardSize.cols]);
+
+  // Effect to initialize the board when the component mounts or board size changes
+  useEffect(() => {
+    initializeBoard();
+  }, [initializeBoard]);
 
   // Handler for changing the board dimensions
   const handleBoardSizeChange = (e) => {
@@ -105,7 +110,13 @@ const App = () => {
 
   // Function to generate BINGO square text using the Gemini API
   const generateBingoSquares = async () => {
-    if (!bingoTopic || isLoading) return;
+    if (!bingoTopic || !apiKey || isLoading) {
+        if (!apiKey) {
+            setMessage('Please enter your Gemini API key.');
+            setTimeout(() => setMessage(''), 3000);
+        }
+        return;
+    }
     setIsLoading(true);
     setMessage('Generating squares...');
 
@@ -127,7 +138,6 @@ const App = () => {
         }
     };
 
-    const apiKey = ""
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
 
     try {
@@ -163,6 +173,18 @@ const App = () => {
         setIsLoading(false);
         setTimeout(() => setMessage(''), 3000);
     }
+  };
+
+  const handleOnDragEnd = (result) => {
+    if (!result.destination || !isEditing) {
+      return;
+    }
+
+    const items = Array.from(squares);
+    const [reorderedItem] = items.splice(result.source.index, 1);
+    items.splice(result.destination.index, 0, reorderedItem);
+
+    setSquares(items);
   };
 
   return (
@@ -232,6 +254,18 @@ const App = () => {
               <input type="color" name="markedOverlay" value={colors.markedOverlay} onChange={handleColorChange} className="w-full h-8" />
             </div>
           </div>
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-gray-700">Marker Opacity</label>
+            <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.05"
+                value={overlayOpacity}
+                onChange={(e) => setOverlayOpacity(parseFloat(e.target.value))}
+                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+            />
+          </div>
         </div>
 
         {/* Image Upload and Play/Edit Mode */}
@@ -259,20 +293,33 @@ const App = () => {
       {/* Gemini API Feature */}
       <div className="bg-white p-6 rounded-2xl shadow-xl border border-gray-200 w-full max-w-7xl mb-8">
         <h2 className="text-xl font-bold mb-4">✨ Generate Board Content</h2>
-        <div className="flex flex-col md:flex-row gap-4 items-end">
-            <div className="flex-grow w-full">
+        <div className="space-y-4">
+            <div>
                 <label className="block text-sm font-medium text-gray-700">
-                    Topic for your BINGO squares:
+                    Your Gemini API Key
                 </label>
                 <input
-                    type="text"
-                    value={bingoTopic}
-                    onChange={(e) => setBingoTopic(e.target.value)}
-                    placeholder="e.g., 'Camping essentials', 'Famous landmarks'"
+                    type="password"
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    placeholder="Enter your API key here"
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 transition ease-in-out"
                 />
             </div>
-            <button
+            <div className="flex flex-col md:flex-row gap-4 items-end">
+                <div className="flex-grow w-full">
+                    <label className="block text-sm font-medium text-gray-700">
+                        Topic for your BINGO squares:
+                    </label>
+                    <input
+                        type="text"
+                        value={bingoTopic}
+                        onChange={(e) => setBingoTopic(e.target.value)}
+                        placeholder="e.g., 'Camping essentials', 'Famous landmarks'"
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 transition ease-in-out"
+                    />
+                </div>
+                <button
                 onClick={generateBingoSquares}
                 disabled={isLoading}
                 style={{ backgroundColor: colors.buttonBg, color: colors.buttonText }}
@@ -280,6 +327,7 @@ const App = () => {
             >
                 {isLoading ? 'Generating...' : '✨ Generate BINGO Squares'}
             </button>
+        </div>
         </div>
       </div>
       
@@ -290,52 +338,68 @@ const App = () => {
       )}
 
       {/* The BINGO Board */}
-      <div
-        className="bingo-board grid gap-2 p-4 rounded-2xl shadow-xl border-4"
-        style={{
-          borderColor: colors.squareBorder,
-          backgroundColor: colors.boardBg,
-          gridTemplateColumns: `repeat(${boardSize.cols}, minmax(0, 1fr))`,
-          aspectRatio: `${boardSize.cols} / ${boardSize.rows}`,
-          width: '100%',
-          maxWidth: '800px',
-        }}
-      >
-        {squares.map((square, index) => (
-          <div
-            key={index}
-            onClick={() => toggleMarked(index)}
-            style={{
-              backgroundColor: colors.squareBg,
-              borderColor: colors.squareBorder,
-              color: colors.squareText,
-              backgroundImage: square.isMarked && bingoImage ? `url(${bingoImage})` : 'none',
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-              backgroundBlendMode: 'overlay',
-            }}
-            className="relative flex items-center justify-center text-center p-2 rounded-lg transition-all duration-200 border-2"
-          >
-            {/* Overlay to ensure text is visible when marked */}
-            {square.isMarked && (
-                <div
-                    className="absolute inset-0 rounded-lg opacity-80"
-                    style={{backgroundColor: colors.markedOverlay}}
-                ></div>
-            )}
-            {isEditing ? (
-              <textarea
-                className="w-full h-full text-center p-1 bg-transparent resize-none border-none focus:outline-none focus:ring-0"
-                value={square.text}
-                onChange={(e) => handleTextChange(index, e)}
-                style={{ color: colors.squareText }}
-              />
-            ) : (
-              <p className="text-sm font-semibold leading-tight z-10">{square.text}</p>
-            )}
-          </div>
-        ))}
-      </div>
+      <DragDropContext onDragEnd={handleOnDragEnd}>
+        <Droppable droppableId="bingo-board">
+          {(provided) => (
+            <div
+              {...provided.droppableProps}
+              ref={provided.innerRef}
+              className="bingo-board grid gap-2 p-4 rounded-2xl shadow-xl border-4"
+              style={{
+                borderColor: colors.squareBorder,
+                backgroundColor: colors.boardBg,
+                gridTemplateColumns: `repeat(${boardSize.cols}, minmax(0, 1fr))`,
+                aspectRatio: `${boardSize.cols} / ${boardSize.rows}`,
+                width: '100%',
+                maxWidth: '800px',
+              }}
+            >
+              {squares.map((square, index) => (
+                <Draggable key={index} draggableId={String(index)} index={index} isDragDisabled={!isEditing}>
+                  {(provided) => (
+                    <div
+                      ref={provided.innerRef}
+                      {...provided.draggableProps}
+                      {...provided.dragHandleProps}
+                      onClick={() => toggleMarked(index)}
+                      style={{
+                        backgroundColor: colors.squareBg,
+                        borderColor: colors.squareBorder,
+                        color: colors.squareText,
+                        backgroundImage: square.isMarked && bingoImage ? `url(${bingoImage})` : 'none',
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
+                        backgroundBlendMode: 'overlay',
+                        ...provided.draggableProps.style,
+                      }}
+                      className="relative flex items-center justify-center text-center p-2 rounded-lg transition-all duration-200 border-2"
+                    >
+                      {/* Overlay to ensure text is visible when marked */}
+                      {square.isMarked && (
+                          <div
+                              className="absolute inset-0 rounded-lg"
+                              style={{backgroundColor: colors.markedOverlay, opacity: overlayOpacity}}
+                          ></div>
+                      )}
+                      {isEditing ? (
+                        <textarea
+                          className="w-full h-full text-center p-1 bg-transparent resize-none border-none focus:outline-none focus:ring-0"
+                          value={square.text}
+                          onChange={(e) => handleTextChange(index, e)}
+                          style={{ color: colors.squareText }}
+                        />
+                      ) : (
+                        <p className="text-sm font-semibold leading-tight z-10">{square.text}</p>
+                      )}
+                    </div>
+                  )}
+                </Draggable>
+              ))}
+              {provided.placeholder}
+            </div>
+          )}
+        </Droppable>
+      </DragDropContext>
     </div>
   );
 };
