@@ -1,6 +1,6 @@
 import React from 'react';
 
-export const Square = ({ square, index, colors, bingoImage, overlayOpacity, isEditing, handleTextChange, toggleMarked, boardSize }) => {
+export const Square = ({ square, index, colors, bingoImage, overlayOpacity, isEditing, handleTextChange, toggleMarked, boardSize, winningSquareIndices }) => {
   const style = {
     boxSizing: 'border-box',
     width: `calc(100% / ${boardSize.cols})`,
@@ -8,7 +8,7 @@ export const Square = ({ square, index, colors, bingoImage, overlayOpacity, isEd
   };
 
   return (
-    <div style={style}>
+    <div style={style} className={winningSquareIndices && winningSquareIndices.has(index) ? 'winning-square' : ''}>
       <div
         onClick={() => toggleMarked(index)}
         style={{

@@ -19,6 +19,52 @@ import pako from 'pako';
 import { FEATURES } from './config';
 import { SortableSquare } from './SortableSquare';
 import { Square } from './Square'; // We'll create a simple static square component
+import Confetti from 'react-confetti';
+
+const checkWin = (squares, boardSize) => {
+  const { rows, cols } = boardSize;
+  const lines = [];
+
+  // Horizontal
+  for (let r = 0; r < rows; r++) {
+    const line = [];
+    for (let c = 0; c < cols; c++) {
+      line.push(r * cols + c);
+    }
+    if (line.every(i => squares[i]?.isMarked)) {
+      lines.push(line);
+    }
+  }
+
+  // Vertical
+  for (let c = 0; c < cols; c++) {
+    const line = [];
+    for (let r = 0; r < rows; r++) {
+      line.push(r * cols + c);
+    }
+    if (line.every(i => squares[i]?.isMarked)) {
+      lines.push(line);
+    }
+  }
+
+  // Diagonals (only if it's a square board)
+  if (rows === cols) {
+    const diag1 = [];
+    const diag2 = [];
+    for (let i = 0; i < rows; i++) {
+      diag1.push(i * cols + i);
+      diag2.push(i * cols + (cols - 1 - i));
+    }
+    if (diag1.every(i => squares[i]?.isMarked)) {
+      lines.push(diag1);
+    }
+    if (diag2.every(i => squares[i]?.isMarked)) {
+      lines.push(diag2);
+    }
+  }
+
+  return lines;
+};
 
 const App = () => {
   const fileInputRef = useRef(null);
@@ -53,6 +99,9 @@ const App = () => {
   const [activeId, setActiveId] = useState(null);
   const [saveLoadString, setSaveLoadString] = useState('');
   const [isGeneratorOpen, setIsGeneratorOpen] = useState(false);
+  const [winningLines, setWinningLines] = useState([]);
+  const [winningSquareIndices, setWinningSquareIndices] = useState(new Set());
+  const [showConfetti, setShowConfetti] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -78,6 +127,27 @@ const App = () => {
   useEffect(() => {
     initializeBoard();
   }, [initializeBoard]);
+
+  // Effect to check for a win whenever the squares change
+  useEffect(() => {
+    if (isEditing || !squares.length) return;
+
+    const currentWinningLines = checkWin(squares, boardSize);
+    if (currentWinningLines.length > winningLines.length) {
+      // A new line has been made
+      setShowConfetti(true);
+      setTimeout(() => setShowConfetti(false), 5000); // Confetti for 5 seconds
+
+      const newWinningLines = currentWinningLines.map(line => line.sort().join('-'));
+      setWinningLines(newWinningLines);
+
+      const allWinningIndices = new Set(currentWinningLines.flat());
+      setWinningSquareIndices(allWinningIndices);
+
+      setMessage('BINGO!');
+      setTimeout(() => setMessage(''), 3000);
+    }
+  }, [squares, boardSize, isEditing, winningLines]);
 
   // Handler for changing the board dimensions
   const handleBoardSizeChange = (e) => {
@@ -289,7 +359,7 @@ const App = () => {
 
   return (
     <div className="min-h-screen p-8 flex flex-col items-center font-sans" style={{ backgroundColor: colors.boardBg }}>
-
+      {showConfetti && <Confetti recycle={false} onConfettiComplete={() => setShowConfetti(false)} />}
       <div className="flex flex-col gap-6 md:flex-row md:justify-center w-full max-w-7xl mb-8">
         {/* Board Controls */}
         <div className="bg-white p-6 rounded-2xl shadow-xl border border-gray-200">
@@ -503,6 +573,7 @@ const App = () => {
                   handleTextChange={handleTextChange}
                   toggleMarked={toggleMarked}
                   boardSize={boardSize}
+                  winningSquareIndices={winningSquareIndices}
                 />
               ))}
             </SortableContext>
@@ -519,6 +590,7 @@ const App = () => {
                 handleTextChange={handleTextChange}
                 toggleMarked={toggleMarked}
                 boardSize={boardSize}
+                winningSquareIndices={winningSquareIndices}
               />
             ))
           )}
@@ -532,6 +604,7 @@ const App = () => {
               bingoImage={bingoImage}
               overlayOpacity={overlayOpacity}
               isEditing={isEditing}
+              winningSquareIndices={winningSquareIndices}
             />
           ) : null}
         </DragOverlay>

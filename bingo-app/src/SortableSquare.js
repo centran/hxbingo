@@ -2,7 +2,7 @@ import React from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-export const SortableSquare = ({ id, square, index, colors, bingoImage, overlayOpacity, isEditing, handleTextChange, toggleMarked, boardSize }) => {
+export const SortableSquare = ({ id, square, index, colors, bingoImage, overlayOpacity, isEditing, handleTextChange, toggleMarked, boardSize, winningSquareIndices }) => {
   const {
     attributes,
     listeners,
@@ -20,7 +20,7 @@ export const SortableSquare = ({ id, square, index, colors, bingoImage, overlayO
   };
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes}>
+    <div ref={setNodeRef} style={style} {...attributes} className={winningSquareIndices.has(index) ? 'winning-square' : ''}>
       <div
         onClick={() => toggleMarked(index)}
         style={{
