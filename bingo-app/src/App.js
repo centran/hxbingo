@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 
 const App = () => {
+  const fileInputRef = useRef(null);
   // State for the board's dimensions
   const [boardSize, setBoardSize] = useState({ rows: 5, cols: 5 });
   // State for the squares, each with text and marked status
@@ -88,6 +89,15 @@ const App = () => {
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const handleRemoveImage = () => {
+    setBingoImage(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = null;
+    }
+    setMessage('Marker image removed!');
+    setTimeout(() => setMessage(''), 3000);
   };
 
   // Function to toggle the marked status of a square
@@ -280,12 +290,18 @@ const App = () => {
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Upload Marker Image
           </label>
-          <input
-            type="file"
-            onChange={handleImageUpload}
-            accept="image/*"
-            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"
-          />
+          <div className="flex items-center gap-2">
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleImageUpload}
+              accept="image/*"
+              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"
+            />
+            {bingoImage && (
+              <button onClick={handleRemoveImage} className="text-sm text-red-500 hover:text-red-700">Remove</button>
+            )}
+          </div>
           <button
             onClick={() => setIsEditing(!isEditing)}
             style={{ backgroundColor: colors.buttonBg, color: colors.buttonText }}
