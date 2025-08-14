@@ -311,11 +311,19 @@ const App = () => {
   const fromBase64 = (str) => new Uint8Array(atob(str).split('').map(c => c.charCodeAt(0)));
 
   const handleSave = () => {
+    let imageToSave = bingoImage;
+    let saveMessage = 'Board saved to text box!';
+
+    if (bingoImage && bingoImage.length > 100 * 1024) {
+      imageToSave = null;
+      saveMessage = 'Board saved, but marker image was too large and was not included.';
+    }
+
     const saveData = {
       boardSize,
       squares,
       colors,
-      bingoImage,
+      bingoImage: imageToSave,
       overlayOpacity,
     };
     try {
@@ -323,12 +331,12 @@ const App = () => {
       const compressed = pako.deflate(jsonString);
       const encoded = toBase64(compressed);
       setSaveLoadString(encoded);
-      setMessage('Board saved to text box!');
+      setMessage(saveMessage);
     } catch (error) {
       console.error("Failed to save board:", error);
       setMessage('Could not save board.');
     }
-    setTimeout(() => setMessage(''), 3000);
+    setTimeout(() => setMessage(''), 4000);
   };
 
   const handleLoad = () => {
