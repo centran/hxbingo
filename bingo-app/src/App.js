@@ -14,6 +14,7 @@ import {
   sortableKeyboardCoordinates,
   rectSortingStrategy,
 } from '@dnd-kit/sortable';
+import pako from 'pako';
 
 import { FEATURES } from './config';
 import { SortableSquare } from './SortableSquare';
@@ -50,6 +51,7 @@ const App = () => {
   // State to track if the AI is generating content
   const [isLoading, setIsLoading] = useState(false);
   const [activeId, setActiveId] = useState(null);
+  const [saveLoadString, setSaveLoadString] = useState('');
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -230,6 +232,58 @@ const App = () => {
     setActiveId(null);
   }
 
+  const toBase64 = (arr) => btoa(String.fromCharCode.apply(null, arr));
+  const fromBase64 = (str) => new Uint8Array(atob(str).split('').map(c => c.charCodeAt(0)));
+
+  const handleSave = () => {
+    const saveData = {
+      boardSize,
+      squares,
+      colors,
+      bingoImage,
+      overlayOpacity,
+    };
+    try {
+      const jsonString = JSON.stringify(saveData);
+      const compressed = pako.deflate(jsonString);
+      const encoded = toBase64(compressed);
+      setSaveLoadString(encoded);
+      setMessage('Board saved to text box!');
+    } catch (error) {
+      console.error("Failed to save board:", error);
+      setMessage('Could not save board.');
+    }
+    setTimeout(() => setMessage(''), 3000);
+  };
+
+  const handleLoad = () => {
+    if (!saveLoadString) {
+      setMessage('Please paste a save code first.');
+      setTimeout(() => setMessage(''), 3000);
+      return;
+    }
+    try {
+      const decoded = fromBase64(saveLoadString);
+      const decompressed = pako.inflate(decoded, { to: 'string' });
+      const loadedData = JSON.parse(decompressed);
+
+      if (loadedData.boardSize && loadedData.squares && loadedData.colors) {
+        setBoardSize(loadedData.boardSize);
+        setSquares(loadedData.squares);
+        setColors(loadedData.colors);
+        setBingoImage(loadedData.bingoImage || null);
+        setOverlayOpacity(loadedData.overlayOpacity || 0.8);
+        setMessage('Board loaded successfully!');
+      } else {
+        throw new Error("Invalid save data structure.");
+      }
+    } catch (error) {
+      console.error("Failed to load board:", error);
+      setMessage('Could not load board. The code is invalid.');
+    }
+    setTimeout(() => setMessage(''), 3000);
+  };
+
   const getSquareById = (id) => squares.find(s => s.id === id);
 
   return (
@@ -343,6 +397,33 @@ const App = () => {
             className="mt-4 w-full py-2 px-4 rounded-lg font-bold shadow-md hover:scale-105 transition-all duration-200"
           >
             {isEditing ? 'Start Playing' : 'Edit Board'}
+          </button>
+        </div>
+      </div>
+
+      {/* Save/Load Feature */}
+      <div className="bg-white p-6 rounded-2xl shadow-xl border border-gray-200 w-full max-w-7xl mb-8">
+        <h2 className="text-xl font-bold mb-4">💾 Save/Load Board</h2>
+        <textarea
+          className="w-full h-24 p-2 border border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+          placeholder="Copy your save code from here, or paste a code to load."
+          value={saveLoadString}
+          onChange={(e) => setSaveLoadString(e.target.value)}
+        />
+        <div className="flex gap-4 mt-4">
+          <button
+            onClick={handleSave}
+            style={{ backgroundColor: colors.buttonBg, color: colors.buttonText }}
+            className="w-full py-2 px-4 rounded-lg font-bold shadow-md hover:scale-105 transition-all duration-200"
+          >
+            Save to Text Box
+          </button>
+          <button
+            onClick={handleLoad}
+            style={{ backgroundColor: colors.buttonBg, color: colors.buttonText }}
+            className="w-full py-2 px-4 rounded-lg font-bold shadow-md hover:scale-105 transition-all duration-200"
+          >
+            Load from Text Box
           </button>
         </div>
       </div>
