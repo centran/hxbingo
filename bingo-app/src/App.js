@@ -364,7 +364,76 @@ const App = () => {
   return (
     <div className="min-h-screen p-8 flex flex-col items-center font-sans" style={{ backgroundColor: colors.boardBg }}>
       {showConfetti && <Confetti recycle={false} onConfettiComplete={() => setShowConfetti(false)} />}
-      <div className="flex flex-col gap-6 md:flex-row md:justify-center w-full max-w-7xl mb-8">
+
+      {/* The BINGO Board */}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+      >
+        <div
+          className="bingo-board flex flex-wrap p-4 rounded-2xl shadow-xl border-4"
+          style={{
+            borderColor: colors.squareBorder,
+            backgroundColor: colors.boardBg,
+            width: '100%',
+            maxWidth: '800px',
+          }}
+        >
+          {FEATURES.DND_ENABLED && isEditing ? (
+            <SortableContext items={squares.map(s => s.id)} strategy={rectSortingStrategy}>
+              {squares.map((square, index) => (
+                <SortableSquare
+                  key={square.id}
+                  id={square.id}
+                  square={square}
+                  index={index}
+                  colors={colors}
+                  bingoImage={bingoImage}
+                  overlayOpacity={overlayOpacity}
+                  isEditing={isEditing}
+                  handleTextChange={handleTextChange}
+                  toggleMarked={toggleMarked}
+                  boardSize={boardSize}
+                  winningSquareIndices={winningSquareIndices}
+                />
+              ))}
+            </SortableContext>
+          ) : (
+            squares.map((square, index) => (
+              <Square
+                key={square.id}
+                square={square}
+                index={index}
+                colors={colors}
+                bingoImage={bingoImage}
+                overlayOpacity={overlayOpacity}
+                isEditing={isEditing}
+                handleTextChange={handleTextChange}
+                toggleMarked={toggleMarked}
+                boardSize={boardSize}
+                winningSquareIndices={winningSquareIndices}
+              />
+            ))
+          )}
+        </div>
+        <DragOverlay>
+          {activeId ? (
+            <Square
+              square={getSquareById(activeId)}
+              boardSize={boardSize}
+              colors={colors}
+              bingoImage={bingoImage}
+              overlayOpacity={overlayOpacity}
+              isEditing={isEditing}
+              winningSquareIndices={winningSquareIndices}
+            />
+          ) : null}
+        </DragOverlay>
+      </DndContext>
+
+      <div className="flex flex-col gap-6 md:flex-row md:justify-center w-full max-w-7xl mt-8">
         {/* Board Controls */}
         <div className="bg-white p-6 rounded-2xl shadow-xl border border-gray-200">
           <h2 className="text-xl font-bold mb-4">Board Settings</h2>
@@ -545,74 +614,6 @@ const App = () => {
           {message}
         </div>
       )}
-
-      {/* The BINGO Board */}
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-      >
-        <div
-          className="bingo-board flex flex-wrap p-4 rounded-2xl shadow-xl border-4"
-          style={{
-            borderColor: colors.squareBorder,
-            backgroundColor: colors.boardBg,
-            width: '100%',
-            maxWidth: '800px',
-          }}
-        >
-          {FEATURES.DND_ENABLED && isEditing ? (
-            <SortableContext items={squares.map(s => s.id)} strategy={rectSortingStrategy}>
-              {squares.map((square, index) => (
-                <SortableSquare
-                  key={square.id}
-                  id={square.id}
-                  square={square}
-                  index={index}
-                  colors={colors}
-                  bingoImage={bingoImage}
-                  overlayOpacity={overlayOpacity}
-                  isEditing={isEditing}
-                  handleTextChange={handleTextChange}
-                  toggleMarked={toggleMarked}
-                  boardSize={boardSize}
-                  winningSquareIndices={winningSquareIndices}
-                />
-              ))}
-            </SortableContext>
-          ) : (
-            squares.map((square, index) => (
-              <Square
-                key={square.id}
-                square={square}
-                index={index}
-                colors={colors}
-                bingoImage={bingoImage}
-                overlayOpacity={overlayOpacity}
-                isEditing={isEditing}
-                handleTextChange={handleTextChange}
-                toggleMarked={toggleMarked}
-                boardSize={boardSize}
-                winningSquareIndices={winningSquareIndices}
-              />
-            ))
-          )}
-        </div>
-        <DragOverlay>
-          {activeId ? (
-            <Square
-              square={getSquareById(activeId)}
-              boardSize={boardSize}
-              colors={colors}
-              bingoImage={bingoImage}
-              overlayOpacity={overlayOpacity}
-              isEditing={isEditing}
-              winningSquareIndices={winningSquareIndices}
-            />
-          ) : null}
-        </DragOverlay>
-      </DndContext>
     </div>
   );
 };
