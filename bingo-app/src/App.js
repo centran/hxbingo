@@ -52,6 +52,7 @@ const App = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [activeId, setActiveId] = useState(null);
   const [saveLoadString, setSaveLoadString] = useState('');
+  const [isGeneratorOpen, setIsGeneratorOpen] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -160,7 +161,7 @@ const App = () => {
     setMessage('Generating squares...');
 
     const prompt = `Generate a list of exactly ${boardSize.rows * boardSize.cols} items related to '${bingoTopic}'. The items should be single-word or short phrases, suitable for a BINGO card. The output should be a JSON array of strings. Do not include any text before or after the JSON.`;
-    
+
     let chatHistory = [];
     chatHistory.push({ role: "user", parts: [{ text: prompt }] });
 
@@ -192,7 +193,7 @@ const App = () => {
 
         const result = await response.json();
         const jsonText = result?.candidates?.[0]?.content?.parts?.[0]?.text;
-        
+
         if (jsonText) {
             const generatedItems = JSON.parse(jsonText);
             const newSquares = generatedItems.slice(0, boardSize.rows * boardSize.cols).map((item, index) => ({
@@ -288,7 +289,7 @@ const App = () => {
 
   return (
     <div className="min-h-screen p-8 flex flex-col items-center font-sans" style={{ backgroundColor: colors.boardBg }}>
-      
+
       <div className="flex flex-col gap-6 md:flex-row md:justify-center w-full max-w-7xl mb-8">
         {/* Board Controls */}
         <div className="bg-white p-6 rounded-2xl shadow-xl border border-gray-200">
@@ -322,6 +323,24 @@ const App = () => {
           >
             Shuffle Board
           </button>
+          <hr className="my-4" />
+          <div>
+            <h3 className="text-lg font-bold mb-2">💾 Save/Load Board</h3>
+            <textarea
+              className="w-full h-24 p-2 border border-gray-300 rounded-md shadow-sm"
+              placeholder="Copy code from here, or paste code to load."
+              value={saveLoadString}
+              onChange={(e) => setSaveLoadString(e.target.value)}
+            />
+            <div className="flex gap-4 mt-2">
+              <button onClick={handleSave} className="w-full py-2 px-4 rounded-lg font-bold shadow-md text-sm" style={{ backgroundColor: colors.buttonBg, color: colors.buttonText }}>
+                Save to Text Box
+              </button>
+              <button onClick={handleLoad} className="w-full py-2 px-4 rounded-lg font-bold shadow-md text-sm" style={{ backgroundColor: colors.buttonBg, color: colors.buttonText }}>
+                Load from Text Box
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Customization Controls */}
@@ -401,41 +420,18 @@ const App = () => {
         </div>
       </div>
 
-      {/* Save/Load Feature */}
-      <div className="bg-white p-6 rounded-2xl shadow-xl border border-gray-200 w-full max-w-7xl mb-8">
-        <h2 className="text-xl font-bold mb-4">💾 Save/Load Board</h2>
-        <textarea
-          className="w-full h-24 p-2 border border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-          placeholder="Copy your save code from here, or paste a code to load."
-          value={saveLoadString}
-          onChange={(e) => setSaveLoadString(e.target.value)}
-        />
-        <div className="flex gap-4 mt-4">
-          <button
-            onClick={handleSave}
-            style={{ backgroundColor: colors.buttonBg, color: colors.buttonText }}
-            className="w-full py-2 px-4 rounded-lg font-bold shadow-md hover:scale-105 transition-all duration-200"
-          >
-            Save to Text Box
-          </button>
-          <button
-            onClick={handleLoad}
-            style={{ backgroundColor: colors.buttonBg, color: colors.buttonText }}
-            className="w-full py-2 px-4 rounded-lg font-bold shadow-md hover:scale-105 transition-all duration-200"
-          >
-            Load from Text Box
-          </button>
-        </div>
-      </div>
-
       {/* Gemini API Feature */}
       <div className="bg-white p-6 rounded-2xl shadow-xl border border-gray-200 w-full max-w-7xl mb-8">
-        <h2 className="text-xl font-bold mb-4">✨ Generate Board Content</h2>
-        <div className="space-y-4">
-            <div>
-                <label className="block text-sm font-medium text-gray-700">
-                    Your Gemini API Key
-                </label>
+        <h2 className="text-xl font-bold mb-4 flex justify-between items-center cursor-pointer" onClick={() => setIsGeneratorOpen(!isGeneratorOpen)}>
+          <span>✨ Generate Board Content</span>
+          <svg className={`w-6 h-6 transition-transform ${isGeneratorOpen ? 'transform rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+        </h2>
+        {isGeneratorOpen && (
+          <div className="space-y-4 mt-4">
+              <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                      Your Gemini API Key
+                  </label>
                 <input
                     type="password"
                     value={apiKey}
@@ -465,10 +461,11 @@ const App = () => {
             >
                 {isLoading ? 'Generating...' : '✨ Generate BINGO Squares'}
             </button>
-        </div>
-        </div>
+            </div>
+          </div>
+        )}
       </div>
-      
+
       {message && (
         <div className="fixed top-4 right-4 bg-green-500 text-white py-2 px-4 rounded-xl shadow-lg transition-transform duration-300">
           {message}
