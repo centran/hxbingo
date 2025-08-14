@@ -167,7 +167,6 @@ const App = () => {
 
   return (
     <div className="min-h-screen p-8 flex flex-col items-center font-sans" style={{ backgroundColor: colors.boardBg }}>
-      <script src="https://cdn.tailwindcss.com"></script>
       
       <div className="flex flex-col gap-6 md:flex-row md:justify-center w-full max-w-7xl mb-8">
         {/* Board Controls */}
