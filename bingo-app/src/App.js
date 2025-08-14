@@ -1,5 +1,23 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragOverlay,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  rectSortingStrategy,
+} from '@dnd-kit/sortable';
+
+import { FEATURES } from './config';
+import { SortableSquare } from './SortableSquare';
+import { Square } from './Square'; // We'll create a simple static square component
 
 const App = () => {
   const fileInputRef = useRef(null);
@@ -31,12 +49,21 @@ const App = () => {
   const [apiKey, setApiKey] = useState('');
   // State to track if the AI is generating content
   const [isLoading, setIsLoading] = useState(false);
+  const [activeId, setActiveId] = useState(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   // Function to create a new board with default text
   const initializeBoard = useCallback(() => {
     const newSquares = [];
     for (let i = 0; i < boardSize.rows * boardSize.cols; i++) {
       newSquares.push({
+        id: i + 1,
         text: `Square ${i + 1}`,
         isMarked: false,
       });
@@ -166,7 +193,8 @@ const App = () => {
         
         if (jsonText) {
             const generatedItems = JSON.parse(jsonText);
-            const newSquares = generatedItems.slice(0, boardSize.rows * boardSize.cols).map(item => ({
+            const newSquares = generatedItems.slice(0, boardSize.rows * boardSize.cols).map((item, index) => ({
+                id: index + 1,
                 text: item,
                 isMarked: false,
             }));
@@ -185,17 +213,24 @@ const App = () => {
     }
   };
 
-  const handleOnDragEnd = (result) => {
-    if (!result.destination || !isEditing) {
-      return;
+  function handleDragStart(event) {
+    setActiveId(event.active.id);
+  }
+
+  function handleDragEnd(event) {
+    const { active, over } = event;
+
+    if (active.id !== over.id) {
+      setSquares((items) => {
+        const oldIndex = items.findIndex((item) => item.id === active.id);
+        const newIndex = items.findIndex((item) => item.id === over.id);
+        return arrayMove(items, oldIndex, newIndex);
+      });
     }
+    setActiveId(null);
+  }
 
-    const items = Array.from(squares);
-    const [reorderedItem] = items.splice(result.source.index, 1);
-    items.splice(result.destination.index, 0, reorderedItem);
-
-    setSquares(items);
-  };
+  const getSquareById = (id) => squares.find(s => s.id === id);
 
   return (
     <div className="min-h-screen p-8 flex flex-col items-center font-sans" style={{ backgroundColor: colors.boardBg }}>
@@ -360,86 +395,69 @@ const App = () => {
       )}
 
       {/* The BINGO Board */}
-      <DragDropContext onDragEnd={handleOnDragEnd}>
-        <Droppable droppableId="bingo-board">
-          {(provided) => (
-            <div
-              {...provided.droppableProps}
-              ref={provided.innerRef}
-              className="bingo-board flex flex-wrap p-4 rounded-2xl shadow-xl border-4"
-              style={{
-                borderColor: colors.squareBorder,
-                backgroundColor: colors.boardBg,
-                width: '100%',
-                maxWidth: '800px',
-              }}
-            >
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+      >
+        <div
+          className="bingo-board flex flex-wrap p-4 rounded-2xl shadow-xl border-4"
+          style={{
+            borderColor: colors.squareBorder,
+            backgroundColor: colors.boardBg,
+            width: '100%',
+            maxWidth: '800px',
+          }}
+        >
+          {FEATURES.DND_ENABLED && isEditing ? (
+            <SortableContext items={squares.map(s => s.id)} strategy={rectSortingStrategy}>
               {squares.map((square, index) => (
-                <Draggable key={index} draggableId={String(index)} index={index} isDragDisabled={!isEditing}>
-                  {(provided) => (
-                    <div
-                      ref={provided.innerRef}
-                      {...provided.draggableProps}
-                      onClick={() => toggleMarked(index)}
-                      style={{
-                        ...provided.draggableProps.style,
-                        boxSizing: 'border-box',
-                        width: `calc(100% / ${boardSize.cols})`,
-                        padding: '0.25rem',
-                      }}
-                    >
-                      <div
-                        style={{
-                            backgroundColor: colors.squareBg,
-                            borderColor: colors.squareBorder,
-                            color: colors.squareText,
-                            backgroundImage: square.isMarked && bingoImage ? `url(${bingoImage})` : 'none',
-                            backgroundSize: 'cover',
-                            backgroundPosition: 'center',
-                            backgroundBlendMode: 'overlay',
-                            width: '100%',
-                            aspectRatio: '1 / 1',
-                        }}
-                        className="relative flex items-center justify-center text-center rounded-lg transition-all duration-200 border-2"
-                      >
-                        {isEditing && (
-                          <div
-                            {...provided.dragHandleProps}
-                            className="absolute top-1 right-1 p-1 cursor-grab rounded-full hover:bg-gray-200"
-                            style={{ color: colors.squareText, zIndex: 20 }}
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="19" r="1"></circle>
-                            </svg>
-                          </div>
-                        )}
-                        {/* Overlay to ensure text is visible when marked */}
-                        {square.isMarked && (
-                            <div
-                                className="absolute inset-0 rounded-lg"
-                                style={{backgroundColor: colors.markedOverlay, opacity: overlayOpacity}}
-                            ></div>
-                        )}
-                        {isEditing ? (
-                          <textarea
-                            className="w-full h-full text-center p-1 bg-transparent resize-none border-none focus:outline-none focus:ring-0"
-                            value={square.text}
-                            onChange={(e) => handleTextChange(index, e)}
-                            style={{ color: colors.squareText }}
-                          />
-                        ) : (
-                          <p className="text-sm font-semibold leading-tight z-10">{square.text}</p>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </Draggable>
+                <SortableSquare
+                  key={square.id}
+                  id={square.id}
+                  square={square}
+                  index={index}
+                  colors={colors}
+                  bingoImage={bingoImage}
+                  overlayOpacity={overlayOpacity}
+                  isEditing={isEditing}
+                  handleTextChange={handleTextChange}
+                  toggleMarked={toggleMarked}
+                  boardSize={boardSize}
+                />
               ))}
-              {provided.placeholder}
-            </div>
+            </SortableContext>
+          ) : (
+            squares.map((square, index) => (
+              <Square
+                key={square.id}
+                square={square}
+                index={index}
+                colors={colors}
+                bingoImage={bingoImage}
+                overlayOpacity={overlayOpacity}
+                isEditing={isEditing}
+                handleTextChange={handleTextChange}
+                toggleMarked={toggleMarked}
+                boardSize={boardSize}
+              />
+            ))
           )}
-        </Droppable>
-      </DragDropContext>
+        </div>
+        <DragOverlay>
+          {activeId ? (
+            <Square
+              square={getSquareById(activeId)}
+              boardSize={boardSize}
+              colors={colors}
+              bingoImage={bingoImage}
+              overlayOpacity={overlayOpacity}
+              isEditing={isEditing}
+            />
+          ) : null}
+        </DragOverlay>
+      </DndContext>
     </div>
   );
 };
