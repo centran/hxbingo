@@ -90,6 +90,7 @@ const App = () => {
   });
   // State for the overlay opacity
   const [overlayOpacity, setOverlayOpacity] = useState(0.8);
+  const [fontSize, setFontSize] = useState(1);
   // State for the user-provided topic for AI-generated squares
   const [bingoTopic, setBingoTopic] = useState('');
   // State for the user's API key
@@ -329,6 +330,7 @@ const App = () => {
       colors,
       bingoImage: imageToSave,
       overlayOpacity,
+      fontSize,
     };
     try {
       const jsonString = JSON.stringify(saveData);
@@ -360,6 +362,7 @@ const App = () => {
         setColors(loadedData.colors);
         setBingoImage(loadedData.bingoImage || null);
         setOverlayOpacity(loadedData.overlayOpacity || 0.8);
+        setFontSize(loadedData.fontSize || 1);
         setMessage('Board loaded successfully!');
       } else {
         throw new Error("Invalid save data structure.");
@@ -409,6 +412,7 @@ const App = () => {
                   toggleMarked={toggleMarked}
                   boardSize={boardSize}
                   winningSquareIndices={winningSquareIndices}
+                  fontSize={fontSize}
                 />
               ))}
             </SortableContext>
@@ -426,6 +430,7 @@ const App = () => {
                 toggleMarked={toggleMarked}
                 boardSize={boardSize}
                 winningSquareIndices={winningSquareIndices}
+                fontSize={fontSize}
               />
             ))
           )}
@@ -440,6 +445,7 @@ const App = () => {
               overlayOpacity={overlayOpacity}
               isEditing={isEditing}
               winningSquareIndices={winningSquareIndices}
+              fontSize={fontSize}
             />
           ) : null}
         </DragOverlay>
@@ -542,6 +548,18 @@ const App = () => {
                 step="0.05"
                 value={overlayOpacity}
                 onChange={(e) => setOverlayOpacity(parseFloat(e.target.value))}
+                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+            />
+          </div>
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-gray-700">Font Size</label>
+            <input
+                type="range"
+                min="0.5"
+                max="2"
+                step="0.1"
+                value={fontSize}
+                onChange={(e) => setFontSize(parseFloat(e.target.value))}
                 className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
             />
           </div>

@@ -2,7 +2,7 @@ import React from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-export const SortableSquare = React.memo(({ id, square, index, colors, bingoImage, overlayOpacity, isEditing, handleTextChange, toggleMarked, boardSize, winningSquareIndices }) => {
+export const SortableSquare = React.memo(({ id, square, index, colors, bingoImage, overlayOpacity, isEditing, handleTextChange, toggleMarked, boardSize, winningSquareIndices, fontSize }) => {
   const {
     attributes,
     listeners,
@@ -58,10 +58,10 @@ export const SortableSquare = React.memo(({ id, square, index, colors, bingoImag
             className="w-full h-full text-center p-1 bg-transparent resize-none border-none focus:outline-none focus:ring-0"
             value={square.text}
             onChange={(e) => handleTextChange(index, e)}
-            style={{ color: colors.squareText, zIndex: 10 }}
+            style={{ color: colors.squareText, zIndex: 10, fontSize: `${fontSize}em` }}
           />
         ) : (
-          <p className="text-sm font-semibold leading-tight z-10">{square.text}</p>
+          <p className="text-sm font-semibold leading-tight z-10" style={{ fontSize: `${fontSize}em` }}>{square.text}</p>
         )}
       </div>
     </div>
