@@ -151,7 +151,7 @@ const App = () => {
       setMessage('BINGO!');
       setTimeout(() => setMessage(''), 3000);
     }
-  }, [squares, boardSize, isEditing, winningLines]);
+  }, [squares, boardSize, isEditing]);
 
   // Handler for changing the board dimensions
   const handleBoardSizeChange = (e) => {
