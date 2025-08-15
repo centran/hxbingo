@@ -164,11 +164,12 @@ const App = () => {
 
   // Handler for text changes in a square's textarea
   const handleTextChange = useCallback((index, e) => {
-    setSquares(currentSquares => {
-      const newSquares = [...currentSquares];
-      newSquares[index].text = e.target.value;
-      return newSquares;
-    });
+    const newText = e.target.value;
+    setSquares(currentSquares =>
+      currentSquares.map((square, i) =>
+        i === index ? { ...square, text: newText } : square
+      )
+    );
   }, []);
 
   // Function to shuffle the squares array randomly
@@ -209,11 +210,11 @@ const App = () => {
   // Function to toggle the marked status of a square
   const toggleMarked = useCallback((index) => {
     if (isEditing) return;
-    setSquares(currentSquares => {
-      const newSquares = [...currentSquares];
-      newSquares[index].isMarked = !newSquares[index].isMarked;
-      return newSquares;
-    });
+    setSquares(currentSquares =>
+      currentSquares.map((square, i) =>
+        i === index ? { ...square, isMarked: !square.isMarked } : square
+      )
+    );
   }, [isEditing]);
 
   // Handler for changing colors
