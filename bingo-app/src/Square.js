@@ -1,6 +1,6 @@
 import React from 'react';
 
-export const Square = ({ square, index, colors, bingoImage, overlayOpacity, isEditing, handleTextChange, toggleMarked, boardSize, winningSquareIndices }) => {
+export const Square = React.memo(({ square, index, colors, bingoImage, overlayOpacity, isEditing, handleTextChange, toggleMarked, boardSize, winningSquareIndices }) => {
   const style = {
     boxSizing: 'border-box',
     width: `calc(100% / ${boardSize.cols})`,
@@ -50,4 +50,4 @@ export const Square = ({ square, index, colors, bingoImage, overlayOpacity, isEd
       </div>
     </div>
   );
-};
+});

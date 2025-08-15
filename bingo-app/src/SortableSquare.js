@@ -2,7 +2,7 @@ import React from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-export const SortableSquare = ({ id, square, index, colors, bingoImage, overlayOpacity, isEditing, handleTextChange, toggleMarked, boardSize, winningSquareIndices }) => {
+export const SortableSquare = React.memo(({ id, square, index, colors, bingoImage, overlayOpacity, isEditing, handleTextChange, toggleMarked, boardSize, winningSquareIndices }) => {
   const {
     attributes,
     listeners,
@@ -66,4 +66,4 @@ export const SortableSquare = ({ id, square, index, colors, bingoImage, overlayO
       </div>
     </div>
   );
-};
+});

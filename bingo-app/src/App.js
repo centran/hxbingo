@@ -163,11 +163,13 @@ const App = () => {
   };
 
   // Handler for text changes in a square's textarea
-  const handleTextChange = (index, e) => {
-    const newSquares = [...squares];
-    newSquares[index].text = e.target.value;
-    setSquares(newSquares);
-  };
+  const handleTextChange = useCallback((index, e) => {
+    setSquares(currentSquares => {
+      const newSquares = [...currentSquares];
+      newSquares[index].text = e.target.value;
+      return newSquares;
+    });
+  }, []);
 
   // Function to shuffle the squares array randomly
   const shuffleSquares = () => {
@@ -205,13 +207,14 @@ const App = () => {
   };
 
   // Function to toggle the marked status of a square
-  const toggleMarked = (index) => {
-    if (!isEditing) {
-      const newSquares = [...squares];
+  const toggleMarked = useCallback((index) => {
+    if (isEditing) return;
+    setSquares(currentSquares => {
+      const newSquares = [...currentSquares];
       newSquares[index].isMarked = !newSquares[index].isMarked;
-      setSquares(newSquares);
-    }
-  };
+      return newSquares;
+    });
+  }, [isEditing]);
 
   // Handler for changing colors
   const handleColorChange = (e) => {
@@ -290,11 +293,11 @@ const App = () => {
     }
   };
 
-  function handleDragStart(event) {
+  const handleDragStart = useCallback((event) => {
     setActiveId(event.active.id);
-  }
+  }, []);
 
-  function handleDragEnd(event) {
+  const handleDragEnd = useCallback((event) => {
     const { active, over } = event;
 
     if (active.id !== over.id) {
@@ -305,7 +308,7 @@ const App = () => {
       });
     }
     setActiveId(null);
-  }
+  }, []);
 
   const toBase64 = (arr) => btoa(String.fromCharCode.apply(null, arr));
   const fromBase64 = (str) => new Uint8Array(atob(str).split('').map(c => c.charCodeAt(0)));
@@ -367,7 +370,7 @@ const App = () => {
     setTimeout(() => setMessage(''), 3000);
   };
 
-  const getSquareById = (id) => squares.find(s => s.id === id);
+  const getSquareById = useCallback((id) => squares.find(s => s.id === id), [squares]);
 
   return (
     <div className="min-h-screen p-8 flex flex-col items-center font-sans" style={{ backgroundColor: colors.boardBg }}>
