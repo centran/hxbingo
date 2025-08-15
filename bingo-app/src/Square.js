@@ -1,6 +1,6 @@
 import React from 'react';
 
-export const Square = ({ square, index, colors, bingoImage, overlayOpacity, isEditing, handleTextChange, toggleMarked, boardSize }) => {
+export const Square = React.memo(({ square, index, colors, bingoImage, overlayOpacity, isEditing, handleTextChange, toggleMarked, boardSize, winningSquareIndices, fontSize }) => {
   const style = {
     boxSizing: 'border-box',
     width: `calc(100% / ${boardSize.cols})`,
@@ -8,7 +8,7 @@ export const Square = ({ square, index, colors, bingoImage, overlayOpacity, isEd
   };
 
   return (
-    <div style={style}>
+    <div style={style} className={winningSquareIndices && winningSquareIndices.has(index) ? 'winning-square' : ''}>
       <div
         onClick={() => toggleMarked(index)}
         style={{
@@ -42,12 +42,12 @@ export const Square = ({ square, index, colors, bingoImage, overlayOpacity, isEd
             className="w-full h-full text-center p-1 bg-transparent resize-none border-none focus:outline-none focus:ring-0"
             value={square.text}
             onChange={(e) => handleTextChange(index, e)}
-            style={{ color: colors.squareText, zIndex: 10 }}
+            style={{ color: colors.squareText, zIndex: 10, fontSize: `${fontSize}em` }}
           />
         ) : (
-          <p className="text-sm font-semibold leading-tight z-10">{square.text}</p>
+          <p className="text-sm font-semibold leading-tight z-10" style={{ fontSize: `${fontSize}em` }}>{square.text}</p>
         )}
       </div>
     </div>
   );
-};
+});

@@ -11,3 +11,19 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
 }
+
+@keyframes rainbow-pulse {
+  0% { border-color: #ff0000; box-shadow: 0 0 5px #ff0000; }
+  14% { border-color: #ff7f00; box-shadow: 0 0 7px #ff7f00; }
+  28% { border-color: #ffff00; box-shadow: 0 0 9px #ffff00; }
+  42% { border-color: #00ff00; box-shadow: 0 0 7px #00ff00; }
+  57% { border-color: #0000ff; box-shadow: 0 0 5px #0000ff; }
+  71% { border-color: #4b0082; box-shadow: 0 0 7px #4b0082; }
+  85% { border-color: #9400d3; box-shadow: 0 0 9px #9400d3; }
+  100% { border-color: #ff0000; box-shadow: 0 0 5px #ff0000; }
+}
+
+.winning-square div {
+  animation: rainbow-pulse 2s infinite;
+  border-width: 4px !important; /* Make the border thicker to be more visible */
+}

@@ -19,6 +19,52 @@ import pako from 'pako';
 import { FEATURES } from './config';
 import { SortableSquare } from './SortableSquare';
 import { Square } from './Square'; // We'll create a simple static square component
+import Confetti from 'react-confetti';
+
+const checkWin = (squares, boardSize) => {
+  const { rows, cols } = boardSize;
+  const lines = [];
+
+  // Horizontal
+  for (let r = 0; r < rows; r++) {
+    const line = [];
+    for (let c = 0; c < cols; c++) {
+      line.push(r * cols + c);
+    }
+    if (line.every(i => squares[i]?.isMarked)) {
+      lines.push(line);
+    }
+  }
+
+  // Vertical
+  for (let c = 0; c < cols; c++) {
+    const line = [];
+    for (let r = 0; r < rows; r++) {
+      line.push(r * cols + c);
+    }
+    if (line.every(i => squares[i]?.isMarked)) {
+      lines.push(line);
+    }
+  }
+
+  // Diagonals (only if it's a square board)
+  if (rows === cols) {
+    const diag1 = [];
+    const diag2 = [];
+    for (let i = 0; i < rows; i++) {
+      diag1.push(i * cols + i);
+      diag2.push(i * cols + (cols - 1 - i));
+    }
+    if (diag1.every(i => squares[i]?.isMarked)) {
+      lines.push(diag1);
+    }
+    if (diag2.every(i => squares[i]?.isMarked)) {
+      lines.push(diag2);
+    }
+  }
+
+  return lines;
+};
 
 const App = () => {
   const fileInputRef = useRef(null);
@@ -44,6 +90,7 @@ const App = () => {
   });
   // State for the overlay opacity
   const [overlayOpacity, setOverlayOpacity] = useState(0.8);
+  const [fontSize, setFontSize] = useState(1);
   // State for the user-provided topic for AI-generated squares
   const [bingoTopic, setBingoTopic] = useState('');
   // State for the user's API key
@@ -53,6 +100,9 @@ const App = () => {
   const [activeId, setActiveId] = useState(null);
   const [saveLoadString, setSaveLoadString] = useState('');
   const [isGeneratorOpen, setIsGeneratorOpen] = useState(false);
+  const [winningLines, setWinningLines] = useState([]);
+  const [winningSquareIndices, setWinningSquareIndices] = useState(new Set());
+  const [showConfetti, setShowConfetti] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -79,6 +129,31 @@ const App = () => {
     initializeBoard();
   }, [initializeBoard]);
 
+  // Effect to check for a win whenever the squares change
+  useEffect(() => {
+    if (!FEATURES.WIN_DETECTION_ENABLED) return;
+
+    if (isEditing || !squares.length) {
+      setWinningLines([]);
+      setWinningSquareIndices(new Set());
+      return;
+    }
+
+    const currentWinningLines = checkWin(squares, boardSize);
+    const allCurrentWinningIndices = new Set(currentWinningLines.flat());
+    setWinningSquareIndices(allCurrentWinningIndices);
+
+    const currentWinningLineIds = currentWinningLines.map(line => line.sort().join('-'));
+    const newLinesFound = currentWinningLineIds.filter(id => !winningLines.includes(id));
+
+    if (newLinesFound.length > 0) {
+      setShowConfetti(true);
+      setWinningLines(prev => [...prev, ...newLinesFound]);
+      setMessage('BINGO!');
+      setTimeout(() => setMessage(''), 3000);
+    }
+  }, [squares, boardSize, isEditing]);
+
   // Handler for changing the board dimensions
   const handleBoardSizeChange = (e) => {
     const { name, value } = e.target;
@@ -89,11 +164,14 @@ const App = () => {
   };
 
   // Handler for text changes in a square's textarea
-  const handleTextChange = (index, e) => {
-    const newSquares = [...squares];
-    newSquares[index].text = e.target.value;
-    setSquares(newSquares);
-  };
+  const handleTextChange = useCallback((index, e) => {
+    const newText = e.target.value;
+    setSquares(currentSquares =>
+      currentSquares.map((square, i) =>
+        i === index ? { ...square, text: newText } : square
+      )
+    );
+  }, []);
 
   // Function to shuffle the squares array randomly
   const shuffleSquares = () => {
@@ -131,13 +209,14 @@ const App = () => {
   };
 
   // Function to toggle the marked status of a square
-  const toggleMarked = (index) => {
-    if (!isEditing) {
-      const newSquares = [...squares];
-      newSquares[index].isMarked = !newSquares[index].isMarked;
-      setSquares(newSquares);
-    }
-  };
+  const toggleMarked = useCallback((index) => {
+    if (isEditing) return;
+    setSquares(currentSquares =>
+      currentSquares.map((square, i) =>
+        i === index ? { ...square, isMarked: !square.isMarked } : square
+      )
+    );
+  }, [isEditing]);
 
   // Handler for changing colors
   const handleColorChange = (e) => {
@@ -216,11 +295,11 @@ const App = () => {
     }
   };
 
-  function handleDragStart(event) {
+  const handleDragStart = useCallback((event) => {
     setActiveId(event.active.id);
-  }
+  }, []);
 
-  function handleDragEnd(event) {
+  const handleDragEnd = useCallback((event) => {
     const { active, over } = event;
 
     if (active.id !== over.id) {
@@ -231,30 +310,39 @@ const App = () => {
       });
     }
     setActiveId(null);
-  }
+  }, []);
 
   const toBase64 = (arr) => btoa(String.fromCharCode.apply(null, arr));
   const fromBase64 = (str) => new Uint8Array(atob(str).split('').map(c => c.charCodeAt(0)));
 
   const handleSave = () => {
+    let imageToSave = bingoImage;
+    let saveMessage = 'Board saved to text box!';
+
+    if (bingoImage && bingoImage.length > 100 * 1024) {
+      imageToSave = null;
+      saveMessage = 'Board saved, but marker image was too large and was not included.';
+    }
+
     const saveData = {
       boardSize,
       squares,
       colors,
-      bingoImage,
+      bingoImage: imageToSave,
       overlayOpacity,
+      fontSize,
     };
     try {
       const jsonString = JSON.stringify(saveData);
       const compressed = pako.deflate(jsonString);
       const encoded = toBase64(compressed);
       setSaveLoadString(encoded);
-      setMessage('Board saved to text box!');
+      setMessage(saveMessage);
     } catch (error) {
       console.error("Failed to save board:", error);
       setMessage('Could not save board.');
     }
-    setTimeout(() => setMessage(''), 3000);
+    setTimeout(() => setMessage(''), 4000);
   };
 
   const handleLoad = () => {
@@ -274,6 +362,7 @@ const App = () => {
         setColors(loadedData.colors);
         setBingoImage(loadedData.bingoImage || null);
         setOverlayOpacity(loadedData.overlayOpacity || 0.8);
+        setFontSize(loadedData.fontSize || 1);
         setMessage('Board loaded successfully!');
       } else {
         throw new Error("Invalid save data structure.");
@@ -285,12 +374,84 @@ const App = () => {
     setTimeout(() => setMessage(''), 3000);
   };
 
-  const getSquareById = (id) => squares.find(s => s.id === id);
+  const getSquareById = useCallback((id) => squares.find(s => s.id === id), [squares]);
 
   return (
     <div className="min-h-screen p-8 flex flex-col items-center font-sans" style={{ backgroundColor: colors.boardBg }}>
+      {showConfetti && <Confetti recycle={false} onConfettiComplete={() => setShowConfetti(false)} />}
 
-      <div className="flex flex-col gap-6 md:flex-row md:justify-center w-full max-w-7xl mb-8">
+      {/* The BINGO Board */}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+      >
+        <div
+          className="bingo-board flex flex-wrap p-4 rounded-2xl shadow-xl border-4"
+          style={{
+            borderColor: colors.squareBorder,
+            backgroundColor: colors.boardBg,
+            width: '100%',
+            maxWidth: '800px',
+          }}
+        >
+          {FEATURES.DND_ENABLED && isEditing ? (
+            <SortableContext items={squares.map(s => s.id)} strategy={rectSortingStrategy}>
+              {squares.map((square, index) => (
+                <SortableSquare
+                  key={square.id}
+                  id={square.id}
+                  square={square}
+                  index={index}
+                  colors={colors}
+                  bingoImage={bingoImage}
+                  overlayOpacity={overlayOpacity}
+                  isEditing={isEditing}
+                  handleTextChange={handleTextChange}
+                  toggleMarked={toggleMarked}
+                  boardSize={boardSize}
+                  winningSquareIndices={winningSquareIndices}
+                  fontSize={fontSize}
+                />
+              ))}
+            </SortableContext>
+          ) : (
+            squares.map((square, index) => (
+              <Square
+                key={square.id}
+                square={square}
+                index={index}
+                colors={colors}
+                bingoImage={bingoImage}
+                overlayOpacity={overlayOpacity}
+                isEditing={isEditing}
+                handleTextChange={handleTextChange}
+                toggleMarked={toggleMarked}
+                boardSize={boardSize}
+                winningSquareIndices={winningSquareIndices}
+                fontSize={fontSize}
+              />
+            ))
+          )}
+        </div>
+        <DragOverlay>
+          {activeId ? (
+            <Square
+              square={getSquareById(activeId)}
+              boardSize={boardSize}
+              colors={colors}
+              bingoImage={bingoImage}
+              overlayOpacity={overlayOpacity}
+              isEditing={isEditing}
+              winningSquareIndices={winningSquareIndices}
+              fontSize={fontSize}
+            />
+          ) : null}
+        </DragOverlay>
+      </DndContext>
+
+      <div className="flex flex-col gap-6 md:flex-row md:justify-center w-full max-w-7xl mt-8">
         {/* Board Controls */}
         <div className="bg-white p-6 rounded-2xl shadow-xl border border-gray-200">
           <h2 className="text-xl font-bold mb-4">Board Settings</h2>
@@ -390,6 +551,18 @@ const App = () => {
                 className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
             />
           </div>
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-gray-700">Font Size</label>
+            <input
+                type="range"
+                min="0.5"
+                max="2"
+                step="0.1"
+                value={fontSize}
+                onChange={(e) => setFontSize(parseFloat(e.target.value))}
+                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+            />
+          </div>
         </div>
 
         {/* Image Upload and Play/Edit Mode */}
@@ -471,71 +644,6 @@ const App = () => {
           {message}
         </div>
       )}
-
-      {/* The BINGO Board */}
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-      >
-        <div
-          className="bingo-board flex flex-wrap p-4 rounded-2xl shadow-xl border-4"
-          style={{
-            borderColor: colors.squareBorder,
-            backgroundColor: colors.boardBg,
-            width: '100%',
-            maxWidth: '800px',
-          }}
-        >
-          {FEATURES.DND_ENABLED && isEditing ? (
-            <SortableContext items={squares.map(s => s.id)} strategy={rectSortingStrategy}>
-              {squares.map((square, index) => (
-                <SortableSquare
-                  key={square.id}
-                  id={square.id}
-                  square={square}
-                  index={index}
-                  colors={colors}
-                  bingoImage={bingoImage}
-                  overlayOpacity={overlayOpacity}
-                  isEditing={isEditing}
-                  handleTextChange={handleTextChange}
-                  toggleMarked={toggleMarked}
-                  boardSize={boardSize}
-                />
-              ))}
-            </SortableContext>
-          ) : (
-            squares.map((square, index) => (
-              <Square
-                key={square.id}
-                square={square}
-                index={index}
-                colors={colors}
-                bingoImage={bingoImage}
-                overlayOpacity={overlayOpacity}
-                isEditing={isEditing}
-                handleTextChange={handleTextChange}
-                toggleMarked={toggleMarked}
-                boardSize={boardSize}
-              />
-            ))
-          )}
-        </div>
-        <DragOverlay>
-          {activeId ? (
-            <Square
-              square={getSquareById(activeId)}
-              boardSize={boardSize}
-              colors={colors}
-              bingoImage={bingoImage}
-              overlayOpacity={overlayOpacity}
-              isEditing={isEditing}
-            />
-          ) : null}
-        </DragOverlay>
-      </DndContext>
     </div>
   );
 };
