@@ -155,25 +155,39 @@ const App = () => {
     if (!FEATURES.WIN_DETECTION_ENABLED) return;
 
     if (isEditing || !squares.length) {
-      setWinningLines([]);
-      setWinningSquareIndices(new Set());
+      if (winningLines.length > 0 || winningSquareIndices.size > 0) {
+        setWinningLines([]);
+        setWinningSquareIndices(new Set());
+      }
       return;
     }
 
     const currentWinningLines = checkWin(squares, boardSize);
     const allCurrentWinningIndices = new Set(currentWinningLines.flat());
-    setWinningSquareIndices(allCurrentWinningIndices);
 
-    const currentWinningLineIds = currentWinningLines.map(line => line.sort().join('-'));
-    const newLinesFound = currentWinningLineIds.filter(id => !winningLines.includes(id));
+    // Use a string comparison to check for changes to avoid re-renders on the same set of indices.
+    const newWinningSquareIndicesString = JSON.stringify(Array.from(allCurrentWinningIndices).sort());
+    const oldWinningSquareIndicesString = JSON.stringify(Array.from(winningSquareIndices).sort());
 
-    if (newLinesFound.length > 0) {
-      setShowConfetti(true);
-      setWinningLines(prev => [...prev, ...newLinesFound]);
-      setMessage('BINGO!');
-      setTimeout(() => setMessage(''), 3000);
+    if (newWinningSquareIndicesString !== oldWinningSquareIndicesString) {
+      setWinningSquareIndices(allCurrentWinningIndices);
     }
-    }, [squares, boardSize, isEditing, winningLines]);
+
+    const currentWinningLineIds = currentWinningLines.map(line =>
+      line.sort((a, b) => a - b).join('-')
+    );
+
+    // Only update if the actual lines have changed.
+    if (JSON.stringify(currentWinningLineIds) !== JSON.stringify(winningLines)) {
+      const newLinesFound = currentWinningLineIds.length > winningLines.length;
+      if (newLinesFound) {
+        setShowConfetti(true);
+        setMessage('BINGO!');
+        setTimeout(() => setMessage(''), 3000);
+      }
+      setWinningLines(currentWinningLineIds);
+    }
+  }, [squares, boardSize, isEditing, winningLines, winningSquareIndices]);
 
   // Handler for changing the board dimensions
   const handleBoardSizeChange = (e) => {
