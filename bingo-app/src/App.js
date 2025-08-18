@@ -107,6 +107,7 @@ const App = () => {
   const [battleSquares, setBattleSquares] = useState([]);
   const [isSpinning, setIsSpinning] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(null);
+  const [isFlashing, setIsFlashing] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -451,14 +452,23 @@ const App = () => {
         currentDelay *= 1.2; // Increase delay to slow down
         setTimeout(spin, currentDelay);
       } else {
-        // End of spin
-        setTimeout(() => {
-          toggleMarked(highlighted);
-          setIsSpinning(false);
-          setHighlightedIndex(null);
-          setMessage('A marked square has been removed!');
-          setTimeout(() => setMessage(''), 3000);
-        }, currentDelay * 1.5);
+        // End of spin, start flashing
+        setIsFlashing(true);
+        let flashCount = 0;
+        const maxFlashes = 10; // 5 flashes on and off
+        const flashInterval = setInterval(() => {
+          setHighlightedIndex(prev => (prev === null ? highlighted : null));
+          flashCount++;
+          if (flashCount >= maxFlashes) {
+            clearInterval(flashInterval);
+            toggleMarked(highlighted);
+            setIsSpinning(false);
+            setIsFlashing(false);
+            setHighlightedIndex(null);
+            setMessage('A marked square has been removed!');
+            setTimeout(() => setMessage(''), 3000);
+          }
+        }, 150);
       }
     };
 
