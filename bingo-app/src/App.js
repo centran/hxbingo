@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   DndContext,
   closestCenter,
@@ -20,6 +20,16 @@ import { FEATURES } from './config';
 import { SortableSquare } from './SortableSquare';
 import { Square } from './Square'; // We'll create a simple static square component
 import Confetti from 'react-confetti';
+
+// Debounce function to limit the rate of function execution
+const debounce = (func, delay) => {
+  let timeoutId;
+  return function(...args) {
+    const context = this;
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => func.apply(context, args), delay);
+  };
+};
 
 const checkWin = (squares, boardSize) => {
   const { rows, cols } = boardSize;
@@ -107,8 +117,6 @@ const App = () => {
   const [battleSquares, setBattleSquares] = useState([]);
   const [isSpinning, setIsSpinning] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(null);
-  // eslint-disable-next-line no-unused-vars
-  const [isFlashing, setIsFlashing] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -150,22 +158,22 @@ const App = () => {
     }
   }, [initializeBoard, initializeBattleBoard]);
 
+  const winCheckResult = useMemo(() => {
+    if (isEditing || !squares.length) {
+      return { winningLines: [], winningSquareIndices: new Set() };
+    }
+    const lines = checkWin(squares, boardSize);
+    const indices = new Set(lines.flat());
+    const lineIds = lines.map(line => line.sort((a, b) => a - b).join('-'));
+    return { winningLines: lineIds, winningSquareIndices: indices };
+  }, [squares, boardSize, isEditing]);
+
   // Effect to check for a win whenever the squares change
   useEffect(() => {
     if (!FEATURES.WIN_DETECTION_ENABLED) return;
 
-    if (isEditing || !squares.length) {
-      if (winningLines.length > 0 || winningSquareIndices.size > 0) {
-        setWinningLines([]);
-        setWinningSquareIndices(new Set());
-      }
-      return;
-    }
+    const { winningLines: currentWinningLineIds, winningSquareIndices: allCurrentWinningIndices } = winCheckResult;
 
-    const currentWinningLines = checkWin(squares, boardSize);
-    const allCurrentWinningIndices = new Set(currentWinningLines.flat());
-
-    // Use a string comparison to check for changes to avoid re-renders on the same set of indices.
     const newWinningSquareIndicesString = JSON.stringify(Array.from(allCurrentWinningIndices).sort());
     const oldWinningSquareIndicesString = JSON.stringify(Array.from(winningSquareIndices).sort());
 
@@ -173,21 +181,15 @@ const App = () => {
       setWinningSquareIndices(allCurrentWinningIndices);
     }
 
-    const currentWinningLineIds = currentWinningLines.map(line =>
-      line.sort((a, b) => a - b).join('-')
-    );
-
-    // Only update if the actual lines have changed.
     if (JSON.stringify(currentWinningLineIds) !== JSON.stringify(winningLines)) {
       const newLinesFound = currentWinningLineIds.length > winningLines.length;
       if (newLinesFound) {
         setShowConfetti(true);
         setMessage('BINGO!');
-        setTimeout(() => setMessage(''), 3000);
       }
       setWinningLines(currentWinningLineIds);
     }
-  }, [squares, boardSize, isEditing, winningLines, winningSquareIndices]);
+  }, [winCheckResult, winningLines, winningSquareIndices]);
 
   // Handler for changing the board dimensions
   const handleBoardSizeChange = (e) => {
@@ -199,8 +201,9 @@ const App = () => {
   };
 
   // Handler for text changes in a square's textarea
-  const handleTextChange = useCallback((index, e) => {
+  const handleTextChange = useCallback((e) => {
     const newText = e.target.value;
+    const index = parseInt(e.target.dataset.index, 10);
     setSquares(currentSquares =>
       currentSquares.map((square, i) =>
         i === index ? { ...square, text: newText } : square
@@ -217,7 +220,6 @@ const App = () => {
     }
     setSquares(shuffledSquares);
     setMessage('Squares shuffled!');
-    setTimeout(() => setMessage(''), 3000);
   };
 
   // Handler for the image file upload
@@ -228,7 +230,6 @@ const App = () => {
       reader.onloadend = () => {
         setBingoImage(reader.result);
         setMessage('Marker image uploaded!');
-        setTimeout(() => setMessage(''), 3000);
       };
       reader.readAsDataURL(file);
     }
@@ -240,12 +241,18 @@ const App = () => {
       fileInputRef.current.value = null;
     }
     setMessage('Marker image removed!');
-    setTimeout(() => setMessage(''), 3000);
   };
 
   // Function to toggle the marked status of a square
-  const toggleMarked = useCallback((index) => {
+  const toggleMarked = useCallback((eventOrIndex) => {
     if (isEditing) return;
+
+    const index = typeof eventOrIndex === 'number'
+      ? eventOrIndex
+      : parseInt(eventOrIndex.currentTarget.dataset.index, 10);
+
+    if (isNaN(index)) return;
+
     setSquares(currentSquares =>
       currentSquares.map((square, i) =>
         i === index ? { ...square, isMarked: !square.isMarked } : square
@@ -263,11 +270,10 @@ const App = () => {
   };
 
   // Function to generate BINGO square text using the Gemini API
-  const generateBingoSquares = async () => {
+  const generateBingoSquares = useCallback(async () => {
     if (!bingoTopic || !apiKey || isLoading) {
         if (!apiKey) {
             setMessage('Please enter your Gemini API key.');
-            setTimeout(() => setMessage(''), 3000);
         }
         return;
     }
@@ -326,9 +332,8 @@ const App = () => {
         setMessage('Error generating squares. Check the console for details.');
     } finally {
         setIsLoading(false);
-        setTimeout(() => setMessage(''), 3000);
     }
-  };
+  }, [apiKey, bingoTopic, boardSize, isLoading]);
 
   const handleDragStart = useCallback((event) => {
     setActiveId(event.active.id);
@@ -350,7 +355,7 @@ const App = () => {
   const toBase64 = (arr) => btoa(String.fromCharCode.apply(null, arr));
   const fromBase64 = (str) => new Uint8Array(atob(str).split('').map(c => c.charCodeAt(0)));
 
-  const handleSave = () => {
+  const handleSave = useCallback(() => {
     let imageToSave = bingoImage;
     let saveMessage = 'Board saved to text box!';
 
@@ -379,13 +384,11 @@ const App = () => {
       console.error("Failed to save board:", error);
       setMessage('Could not save board.');
     }
-    setTimeout(() => setMessage(''), 4000);
-  };
+  }, [bingoImage, boardSize, squares, colors, overlayOpacity, fontSize, isBattleMode, battleSquares]);
 
-  const handleLoad = () => {
+  const handleLoad = useCallback(() => {
     if (!saveLoadString) {
       setMessage('Please paste a save code first.');
-      setTimeout(() => setMessage(''), 3000);
       return;
     }
     try {
@@ -410,22 +413,37 @@ const App = () => {
       console.error("Failed to load board:", error);
       setMessage('Could not load board. The code is invalid.');
     }
-    setTimeout(() => setMessage(''), 3000);
-  };
+  }, [saveLoadString]);
+
+  const debouncedGenerateBingoSquares = useMemo(
+    () => debounce(generateBingoSquares, 300),
+    [generateBingoSquares]
+  );
+
+  const debouncedHandleSave = useMemo(
+    () => debounce(handleSave, 300),
+    [handleSave]
+  );
+
+  const debouncedHandleLoad = useMemo(
+    () => debounce(handleLoad, 300),
+    [handleLoad]
+  );
 
   const getSquareById = useCallback((id) => squares.find(s => s.id === id), [squares]);
 
-  const handleBattleTextChange = (index, e) => {
+  const handleBattleTextChange = useCallback((e) => {
     const newText = e.target.value;
+    const index = parseInt(e.target.dataset.index, 10);
     setBattleSquares(currentSquares =>
       currentSquares.map((square, i) =>
         i === index ? { ...square, text: newText } : square
       )
     );
-  };
+  }, []);
 
-  const handleBattleSquareClick = () => {
-    if (isSpinning) return;
+  const handleBattleSquareClick = useCallback(() => {
+    if (isEditing || isSpinning) return;
 
     const markedSquaresIndices = squares.reduce((acc, square, index) => {
       if (square.isMarked) {
@@ -436,12 +454,11 @@ const App = () => {
 
     if (markedSquaresIndices.length === 0) {
       setMessage('No marked squares to remove!');
-      setTimeout(() => setMessage(''), 3000);
       return;
     }
 
     setIsSpinning(true);
-  };
+  }, [isEditing, isSpinning, squares]);
 
   useEffect(() => {
     if (!isSpinning) return;
@@ -468,7 +485,6 @@ const App = () => {
         setTimeout(spin, currentDelay);
       } else {
         // End of spin, start flashing
-        setIsFlashing(true);
         let flashCount = 0;
         const maxFlashes = 10; // 5 flashes on and off
         const flashInterval = setInterval(() => {
@@ -478,10 +494,8 @@ const App = () => {
             clearInterval(flashInterval);
             toggleMarked(highlighted);
             setIsSpinning(false);
-            setIsFlashing(false);
             setHighlightedIndex(null);
             setMessage('A marked square has been removed!');
-            setTimeout(() => setMessage(''), 3000);
           }
         }, 150);
       }
@@ -489,6 +503,17 @@ const App = () => {
 
     spin();
   }, [isSpinning, squares, toggleMarked]);
+
+  // Effect to automatically clear messages after a delay
+  useEffect(() => {
+    if (message) {
+      const timer = setTimeout(() => {
+        setMessage('');
+      }, 4000); // Set a longer default timeout
+
+      return () => clearTimeout(timer);
+    }
+  }, [message]);
 
   return (
     <div className="min-h-screen p-8 flex flex-col items-center font-sans" style={{ backgroundColor: colors.boardBg }}>
@@ -518,7 +543,10 @@ const App = () => {
                   id={square.id}
                   square={square}
                   index={index}
-                  colors={colors}
+                  squareBg={colors.squareBg}
+                  squareBorder={colors.squareBorder}
+                  squareText={colors.squareText}
+                  markedOverlay={colors.markedOverlay}
                   bingoImage={bingoImage}
                   overlayOpacity={overlayOpacity}
                   isEditing={isEditing}
@@ -537,7 +565,10 @@ const App = () => {
                 key={square.id}
                 square={square}
                 index={index}
-                colors={colors}
+                squareBg={colors.squareBg}
+                squareBorder={colors.squareBorder}
+                squareText={colors.squareText}
+                markedOverlay={colors.markedOverlay}
                 bingoImage={bingoImage}
                 overlayOpacity={overlayOpacity}
                 isEditing={isEditing}
@@ -556,7 +587,10 @@ const App = () => {
             <Square
               square={getSquareById(activeId)}
               boardSize={boardSize}
-              colors={colors}
+              squareBg={colors.squareBg}
+              squareBorder={colors.squareBorder}
+              squareText={colors.squareText}
+              markedOverlay={colors.markedOverlay}
               bingoImage={bingoImage}
               overlayOpacity={overlayOpacity}
               isEditing={isEditing}
@@ -582,12 +616,14 @@ const App = () => {
                 key={square.id}
                 square={square}
                 index={index}
-                colors={colors}
+                squareBg={colors.squareBg}
+                squareBorder={colors.squareBorder}
+                squareText={colors.squareText}
                 bingoImage={null}
                 overlayOpacity={overlayOpacity}
                 isEditing={isEditing}
                 handleTextChange={handleBattleTextChange}
-                toggleMarked={() => isEditing ? {} : handleBattleSquareClick(index)}
+                toggleMarked={handleBattleSquareClick}
                 boardSize={{ rows: 1, cols: boardSize.cols }}
                 winningSquareIndices={new Set()}
                 fontSize={fontSize}
@@ -641,10 +677,10 @@ const App = () => {
               onChange={(e) => setSaveLoadString(e.target.value)}
             />
             <div className="flex gap-4 mt-2">
-              <button onClick={handleSave} className="w-full py-2 px-4 rounded-lg font-bold shadow-md text-sm" style={{ backgroundColor: colors.buttonBg, color: colors.buttonText }}>
+              <button onClick={debouncedHandleSave} className="w-full py-2 px-4 rounded-lg font-bold shadow-md text-sm" style={{ backgroundColor: colors.buttonBg, color: colors.buttonText }}>
                 Save to Text Box
               </button>
-              <button onClick={handleLoad} className="w-full py-2 px-4 rounded-lg font-bold shadow-md text-sm" style={{ backgroundColor: colors.buttonBg, color: colors.buttonText }}>
+              <button onClick={debouncedHandleLoad} className="w-full py-2 px-4 rounded-lg font-bold shadow-md text-sm" style={{ backgroundColor: colors.buttonBg, color: colors.buttonText }}>
                 Load from Text Box
               </button>
             </div>
@@ -788,7 +824,7 @@ const App = () => {
                     />
                 </div>
                 <button
-                onClick={generateBingoSquares}
+                onClick={debouncedGenerateBingoSquares}
                 disabled={isLoading}
                 style={{ backgroundColor: colors.buttonBg, color: colors.buttonText }}
                 className={`py-2 px-6 rounded-lg font-bold shadow-md ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105 transition-all duration-200'}`}
