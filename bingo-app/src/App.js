@@ -417,8 +417,9 @@ const App = () => {
 
   const getSquareById = useCallback((id) => squares.find(s => s.id === id), [squares]);
 
-  const handleBattleTextChange = useCallback((index, e) => {
+  const handleBattleTextChange = useCallback((e) => {
     const newText = e.target.value;
+    const index = parseInt(e.target.dataset.index, 10);
     setBattleSquares(currentSquares =>
       currentSquares.map((square, i) =>
         i === index ? { ...square, text: newText } : square
