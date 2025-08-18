@@ -245,9 +245,15 @@ const App = () => {
   };
 
   // Function to toggle the marked status of a square
-  const toggleMarked = useCallback((e) => {
+  const toggleMarked = useCallback((eventOrIndex) => {
     if (isEditing) return;
-    const index = parseInt(e.currentTarget.dataset.index, 10);
+
+    const index = typeof eventOrIndex === 'number'
+      ? eventOrIndex
+      : parseInt(eventOrIndex.currentTarget.dataset.index, 10);
+
+    if (isNaN(index)) return;
+
     setSquares(currentSquares =>
       currentSquares.map((square, i) =>
         i === index ? { ...square, isMarked: !square.isMarked } : square
