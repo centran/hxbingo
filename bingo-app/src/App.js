@@ -395,6 +395,15 @@ const App = () => {
 
   const getSquareById = useCallback((id) => squares.find(s => s.id === id), [squares]);
 
+  const handleBattleTextChange = (index, e) => {
+    const newText = e.target.value;
+    setBattleSquares(currentSquares =>
+      currentSquares.map((square, i) =>
+        i === index ? { ...square, text: newText } : square
+      )
+    );
+  };
+
   const handleBattleSquareClick = () => {
     if (isSpinning) return;
 
@@ -547,9 +556,9 @@ const App = () => {
                 colors={colors}
                 bingoImage={null}
                 overlayOpacity={overlayOpacity}
-                isEditing={false}
-                handleTextChange={() => {}}
-                toggleMarked={() => handleBattleSquareClick(index)}
+                isEditing={isEditing}
+                handleTextChange={handleBattleTextChange}
+                toggleMarked={() => isEditing ? {} : handleBattleSquareClick(index)}
                 boardSize={{ rows: 1, cols: boardSize.cols }}
                 winningSquareIndices={new Set()}
                 fontSize={fontSize}

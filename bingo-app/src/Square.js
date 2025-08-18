@@ -12,7 +12,7 @@ export const Square = React.memo(({ square, index, colors, bingoImage, overlayOp
     isBattleSquare ? 'battle-square' : '',
     isHighlighted ? 'highlighted-square' : '',
     winningSquareIndices && winningSquareIndices.has(index) ? 'winning-square' : ''
-  ].join(' ');
+  ].filter(Boolean).join(' ');
 
   return (
     <div style={style}>

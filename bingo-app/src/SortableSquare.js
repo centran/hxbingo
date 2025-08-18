@@ -21,8 +21,16 @@ export const SortableSquare = React.memo(({ id, square, index, colors, bingoImag
     padding: '0.25rem',
   };
 
+  const sortableStyle = {
+    ...style,
+    ...(isHighlighted && {
+      borderColor: '#ef4444', /* red-500 */
+      boxShadow: '0 0 15px #ef4444',
+    }),
+  };
+
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+    <div ref={setNodeRef} style={sortableStyle} {...attributes} {...listeners}>
       <Square
         square={square}
         index={index}
@@ -36,7 +44,6 @@ export const SortableSquare = React.memo(({ id, square, index, colors, bingoImag
         winningSquareIndices={winningSquareIndices}
         fontSize={fontSize}
         isBattleSquare={false}
-        isHighlighted={isHighlighted}
       />
     </div>
   );

@@ -26,6 +26,19 @@
     -->
     <script src="https://cdn.tailwindcss.com"></script>
     <title>bingo.HX</title>
+    <style>
+      input:checked ~ .dot {
+        transform: translateX(100%);
+        background-color: #4f46e5;
+      }
+      .battle-square {
+        cursor: pointer;
+      }
+      .highlighted-square {
+        border-color: #ef4444 !important; /* red-500 */
+        box-shadow: 0 0 15px #ef4444;
+      }
+    </style>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
