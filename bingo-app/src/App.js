@@ -117,8 +117,6 @@ const App = () => {
   const [battleSquares, setBattleSquares] = useState([]);
   const [isSpinning, setIsSpinning] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(null);
-  // eslint-disable-next-line no-unused-vars
-  const [isFlashing, setIsFlashing] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -502,7 +500,6 @@ const App = () => {
         setTimeout(spin, currentDelay);
       } else {
         // End of spin, start flashing
-        setIsFlashing(true);
         let flashCount = 0;
         const maxFlashes = 10; // 5 flashes on and off
         const flashInterval = setInterval(() => {
@@ -512,7 +509,6 @@ const App = () => {
             clearInterval(flashInterval);
             toggleMarked(highlighted);
             setIsSpinning(false);
-            setIsFlashing(false);
             setHighlightedIndex(null);
             setMessage('A marked square has been removed!');
             setTimeout(() => setMessage(''), 3000);
