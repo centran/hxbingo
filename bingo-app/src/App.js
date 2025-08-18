@@ -21,6 +21,16 @@ import { SortableSquare } from './SortableSquare';
 import { Square } from './Square'; // We'll create a simple static square component
 import Confetti from 'react-confetti';
 
+// Debounce function to limit the rate of function execution
+const debounce = (func, delay) => {
+  let timeoutId;
+  return function(...args) {
+    const context = this;
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => func.apply(context, args), delay);
+  };
+};
+
 const checkWin = (squares, boardSize) => {
   const { rows, cols } = boardSize;
   const lines = [];
@@ -271,7 +281,7 @@ const App = () => {
   };
 
   // Function to generate BINGO square text using the Gemini API
-  const generateBingoSquares = async () => {
+  const generateBingoSquares = useCallback(async () => {
     if (!bingoTopic || !apiKey || isLoading) {
         if (!apiKey) {
             setMessage('Please enter your Gemini API key.');
@@ -336,7 +346,7 @@ const App = () => {
         setIsLoading(false);
         setTimeout(() => setMessage(''), 3000);
     }
-  };
+  }, [apiKey, bingoTopic, boardSize, isLoading]);
 
   const handleDragStart = useCallback((event) => {
     setActiveId(event.active.id);
@@ -358,7 +368,7 @@ const App = () => {
   const toBase64 = (arr) => btoa(String.fromCharCode.apply(null, arr));
   const fromBase64 = (str) => new Uint8Array(atob(str).split('').map(c => c.charCodeAt(0)));
 
-  const handleSave = () => {
+  const handleSave = useCallback(() => {
     let imageToSave = bingoImage;
     let saveMessage = 'Board saved to text box!';
 
@@ -388,9 +398,9 @@ const App = () => {
       setMessage('Could not save board.');
     }
     setTimeout(() => setMessage(''), 4000);
-  };
+  }, [bingoImage, boardSize, squares, colors, overlayOpacity, fontSize, isBattleMode, battleSquares]);
 
-  const handleLoad = () => {
+  const handleLoad = useCallback(() => {
     if (!saveLoadString) {
       setMessage('Please paste a save code first.');
       setTimeout(() => setMessage(''), 3000);
@@ -419,7 +429,22 @@ const App = () => {
       setMessage('Could not load board. The code is invalid.');
     }
     setTimeout(() => setMessage(''), 3000);
-  };
+  }, [saveLoadString]);
+
+  const debouncedGenerateBingoSquares = useMemo(
+    () => debounce(generateBingoSquares, 300),
+    [generateBingoSquares]
+  );
+
+  const debouncedHandleSave = useMemo(
+    () => debounce(handleSave, 300),
+    [handleSave]
+  );
+
+  const debouncedHandleLoad = useMemo(
+    () => debounce(handleLoad, 300),
+    [handleLoad]
+  );
 
   const getSquareById = useCallback((id) => squares.find(s => s.id === id), [squares]);
 
@@ -650,10 +675,10 @@ const App = () => {
               onChange={(e) => setSaveLoadString(e.target.value)}
             />
             <div className="flex gap-4 mt-2">
-              <button onClick={handleSave} className="w-full py-2 px-4 rounded-lg font-bold shadow-md text-sm" style={{ backgroundColor: colors.buttonBg, color: colors.buttonText }}>
+              <button onClick={debouncedHandleSave} className="w-full py-2 px-4 rounded-lg font-bold shadow-md text-sm" style={{ backgroundColor: colors.buttonBg, color: colors.buttonText }}>
                 Save to Text Box
               </button>
-              <button onClick={handleLoad} className="w-full py-2 px-4 rounded-lg font-bold shadow-md text-sm" style={{ backgroundColor: colors.buttonBg, color: colors.buttonText }}>
+              <button onClick={debouncedHandleLoad} className="w-full py-2 px-4 rounded-lg font-bold shadow-md text-sm" style={{ backgroundColor: colors.buttonBg, color: colors.buttonText }}>
                 Load from Text Box
               </button>
             </div>
@@ -797,7 +822,7 @@ const App = () => {
                     />
                 </div>
                 <button
-                onClick={generateBingoSquares}
+                onClick={debouncedGenerateBingoSquares}
                 disabled={isLoading}
                 style={{ backgroundColor: colors.buttonBg, color: colors.buttonText }}
                 className={`py-2 px-6 rounded-lg font-bold shadow-md ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105 transition-all duration-200'}`}
