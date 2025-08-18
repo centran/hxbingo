@@ -350,6 +350,8 @@ const App = () => {
       bingoImage: imageToSave,
       overlayOpacity,
       fontSize,
+      isBattleMode,
+      battleSquares,
     };
     try {
       const jsonString = JSON.stringify(saveData);
@@ -382,6 +384,8 @@ const App = () => {
         setBingoImage(loadedData.bingoImage || null);
         setOverlayOpacity(loadedData.overlayOpacity || 0.8);
         setFontSize(loadedData.fontSize || 1);
+        setIsBattleMode(loadedData.isBattleMode || false);
+        setBattleSquares(loadedData.battleSquares || []);
         setMessage('Board loaded successfully!');
       } else {
         throw new Error("Invalid save data structure.");
