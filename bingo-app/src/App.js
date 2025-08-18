@@ -107,6 +107,7 @@ const App = () => {
   const [battleSquares, setBattleSquares] = useState([]);
   const [isSpinning, setIsSpinning] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(null);
+  // eslint-disable-next-line no-unused-vars
   const [isFlashing, setIsFlashing] = useState(false);
 
   const sensors = useSensors(
@@ -172,7 +173,7 @@ const App = () => {
       setMessage('BINGO!');
       setTimeout(() => setMessage(''), 3000);
     }
-  }, [squares, boardSize, isEditing]);
+    }, [squares, boardSize, isEditing, winningLines]);
 
   // Handler for changing the board dimensions
   const handleBoardSizeChange = (e) => {
