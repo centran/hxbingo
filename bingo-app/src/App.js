@@ -543,7 +543,10 @@ const App = () => {
                   id={square.id}
                   square={square}
                   index={index}
-                  colors={colors}
+                  squareBg={colors.squareBg}
+                  squareBorder={colors.squareBorder}
+                  squareText={colors.squareText}
+                  markedOverlay={colors.markedOverlay}
                   bingoImage={bingoImage}
                   overlayOpacity={overlayOpacity}
                   isEditing={isEditing}
@@ -562,7 +565,10 @@ const App = () => {
                 key={square.id}
                 square={square}
                 index={index}
-                colors={colors}
+                squareBg={colors.squareBg}
+                squareBorder={colors.squareBorder}
+                squareText={colors.squareText}
+                markedOverlay={colors.markedOverlay}
                 bingoImage={bingoImage}
                 overlayOpacity={overlayOpacity}
                 isEditing={isEditing}
@@ -581,7 +587,10 @@ const App = () => {
             <Square
               square={getSquareById(activeId)}
               boardSize={boardSize}
-              colors={colors}
+              squareBg={colors.squareBg}
+              squareBorder={colors.squareBorder}
+              squareText={colors.squareText}
+              markedOverlay={colors.markedOverlay}
               bingoImage={bingoImage}
               overlayOpacity={overlayOpacity}
               isEditing={isEditing}
@@ -607,7 +616,9 @@ const App = () => {
                 key={square.id}
                 square={square}
                 index={index}
-                colors={colors}
+                squareBg={colors.squareBg}
+                squareBorder={colors.squareBorder}
+                squareText={colors.squareText}
                 bingoImage={null}
                 overlayOpacity={overlayOpacity}
                 isEditing={isEditing}

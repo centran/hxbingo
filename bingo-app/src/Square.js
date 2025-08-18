@@ -87,7 +87,7 @@ const getComplementaryColor = (hex) => {
     return `#${toHex(r2)}${toHex(g2)}${toHex(b2)}`;
 };
 
-export const Square = React.memo(({ square, index, colors, bingoImage, overlayOpacity, isEditing, handleTextChange, toggleMarked, boardSize, winningSquareIndices, fontSize, isBattleSquare = false, isHighlighted = false }) => {
+export const Square = React.memo(({ square, index, squareBg, squareBorder, squareText, markedOverlay, bingoImage, overlayOpacity, isEditing, handleTextChange, toggleMarked, boardSize, winningSquareIndices, fontSize, isBattleSquare = false, isHighlighted = false }) => {
   const style = {
     boxSizing: 'border-box',
     width: `calc(100% / ${boardSize.cols})`,
@@ -102,9 +102,9 @@ export const Square = React.memo(({ square, index, colors, bingoImage, overlayOp
   ].join(' ');
 
   const divStyle = {
-      backgroundColor: colors.squareBg,
-      borderColor: colors.squareBorder,
-      color: colors.squareText,
+      backgroundColor: squareBg,
+      borderColor: squareBorder,
+      color: squareText,
       backgroundImage: square.isMarked && bingoImage && !isBattleSquare ? `url(${bingoImage})` : 'none',
       backgroundSize: 'cover',
       backgroundPosition: 'center',
@@ -114,7 +114,7 @@ export const Square = React.memo(({ square, index, colors, bingoImage, overlayOp
   };
 
   if (isHighlighted) {
-    divStyle.borderColor = getComplementaryColor(colors.squareBg);
+    divStyle.borderColor = getComplementaryColor(squareBg);
   }
 
   return (
@@ -128,14 +128,14 @@ export const Square = React.memo(({ square, index, colors, bingoImage, overlayOp
         {isEditing && (
           <div
             className="absolute top-1 right-1 p-1"
-            style={{ color: colors.squareText, zIndex: 20 }}
+            style={{ color: squareText, zIndex: 20 }}
           >
           </div>
         )}
         {square.isMarked && !isBattleSquare && (
             <div
                 className="absolute inset-0 rounded-lg"
-                style={{backgroundColor: hexToRgba(colors.markedOverlay, overlayOpacity)}}
+                style={{backgroundColor: hexToRgba(markedOverlay, overlayOpacity)}}
             ></div>
         )}
         {isEditing ? (
@@ -144,7 +144,7 @@ export const Square = React.memo(({ square, index, colors, bingoImage, overlayOp
             value={square.text}
             onChange={handleTextChange}
             data-index={index}
-            style={{ color: colors.squareText, zIndex: 10, fontSize: `${fontSize}em` }}
+            style={{ color: squareText, zIndex: 10, fontSize: `${fontSize}em` }}
           />
         ) : (
           <p className="text-sm font-semibold leading-tight z-10" style={{ fontSize: `${fontSize}em` }}>{square.text}</p>
