@@ -3,4 +3,5 @@
 export const FEATURES = {
   DND_ENABLED: true,
   WIN_DETECTION_ENABLED: true,
+  BATTLE_MODE_ENABLED: true,
 };
