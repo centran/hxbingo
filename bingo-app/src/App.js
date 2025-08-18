@@ -199,8 +199,9 @@ const App = () => {
   };
 
   // Handler for text changes in a square's textarea
-  const handleTextChange = useCallback((index, e) => {
+  const handleTextChange = useCallback((e) => {
     const newText = e.target.value;
+    const index = parseInt(e.target.dataset.index, 10);
     setSquares(currentSquares =>
       currentSquares.map((square, i) =>
         i === index ? { ...square, text: newText } : square
@@ -244,8 +245,9 @@ const App = () => {
   };
 
   // Function to toggle the marked status of a square
-  const toggleMarked = useCallback((index) => {
+  const toggleMarked = useCallback((e) => {
     if (isEditing) return;
+    const index = parseInt(e.currentTarget.dataset.index, 10);
     setSquares(currentSquares =>
       currentSquares.map((square, i) =>
         i === index ? { ...square, isMarked: !square.isMarked } : square
@@ -415,17 +417,17 @@ const App = () => {
 
   const getSquareById = useCallback((id) => squares.find(s => s.id === id), [squares]);
 
-  const handleBattleTextChange = (index, e) => {
+  const handleBattleTextChange = useCallback((index, e) => {
     const newText = e.target.value;
     setBattleSquares(currentSquares =>
       currentSquares.map((square, i) =>
         i === index ? { ...square, text: newText } : square
       )
     );
-  };
+  }, []);
 
-  const handleBattleSquareClick = () => {
-    if (isSpinning) return;
+  const handleBattleSquareClick = useCallback(() => {
+    if (isEditing || isSpinning) return;
 
     const markedSquaresIndices = squares.reduce((acc, square, index) => {
       if (square.isMarked) {
@@ -441,7 +443,7 @@ const App = () => {
     }
 
     setIsSpinning(true);
-  };
+  }, [isEditing, isSpinning, squares]);
 
   useEffect(() => {
     if (!isSpinning) return;
@@ -587,7 +589,7 @@ const App = () => {
                 overlayOpacity={overlayOpacity}
                 isEditing={isEditing}
                 handleTextChange={handleBattleTextChange}
-                toggleMarked={() => isEditing ? {} : handleBattleSquareClick(index)}
+                toggleMarked={handleBattleSquareClick}
                 boardSize={{ rows: 1, cols: boardSize.cols }}
                 winningSquareIndices={new Set()}
                 fontSize={fontSize}

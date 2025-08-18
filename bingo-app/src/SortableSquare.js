@@ -22,7 +22,8 @@ export const SortableSquare = React.memo(({ id, square, index, colors, bingoImag
   return (
     <div ref={setNodeRef} style={style} {...attributes} className={winningSquareIndices.has(index) ? 'winning-square' : ''}>
       <div
-        onClick={() => toggleMarked(index)}
+        onClick={toggleMarked}
+        data-index={index}
         style={{
             backgroundColor: colors.squareBg,
             borderColor: colors.squareBorder,
@@ -57,7 +58,8 @@ export const SortableSquare = React.memo(({ id, square, index, colors, bingoImag
           <textarea
             className="w-full h-full text-center p-1 bg-transparent resize-none border-none focus:outline-none focus:ring-0"
             value={square.text}
-            onChange={(e) => handleTextChange(index, e)}
+            onChange={handleTextChange}
+            data-index={index}
             style={{ color: colors.squareText, zIndex: 10, fontSize: `${fontSize}em` }}
           />
         ) : (

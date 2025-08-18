@@ -120,9 +120,10 @@ export const Square = React.memo(({ square, index, colors, bingoImage, overlayOp
   return (
     <div style={style}>
       <div
-        onClick={() => toggleMarked(index)}
+        onClick={toggleMarked}
         style={divStyle}
         className={squareClasses}
+        data-index={index}
       >
         {isEditing && (
           <div
@@ -141,7 +142,8 @@ export const Square = React.memo(({ square, index, colors, bingoImage, overlayOp
           <textarea
             className="w-full h-full text-center p-1 bg-transparent resize-none border-none focus:outline-none focus:ring-0"
             value={square.text}
-            onChange={(e) => handleTextChange(index, e)}
+            onChange={handleTextChange}
+            data-index={index}
             style={{ color: colors.squareText, zIndex: 10, fontSize: `${fontSize}em` }}
           />
         ) : (
