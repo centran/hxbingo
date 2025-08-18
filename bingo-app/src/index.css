@@ -23,7 +23,8 @@ code {
   100% { border-color: #ff0000; box-shadow: 0 0 5px #ff0000; }
 }
 
-.winning-square div {
+.winning-square div,
+.highlighted-square div {
   animation: rainbow-pulse 2s infinite;
   border-width: 4px !important; /* Make the border thicker to be more visible */
 }

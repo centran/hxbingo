@@ -1,5 +1,23 @@
 import React from 'react';
 
+// Helper function to convert hex to rgba, handling potential invalid hex codes gracefully
+const hexToRgba = (hex, alpha) => {
+  // Ensure hex is a string and remove '#'
+  const hexValue = String(hex).replace('#', '');
+
+  // Basic validation for hex code
+  if (!/^[0-9A-F]{6}$/i.test(hexValue)) {
+    // Return a default color or transparent if the hex is invalid
+    return `rgba(200, 200, 200, ${alpha})`; // A neutral grey as a fallback
+  }
+
+  const r = parseInt(hexValue.substring(0, 2), 16);
+  const g = parseInt(hexValue.substring(2, 4), 16);
+  const b = parseInt(hexValue.substring(4, 6), 16);
+
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
+
 export const Square = React.memo(({ square, index, colors, bingoImage, overlayOpacity, isEditing, handleTextChange, toggleMarked, boardSize, winningSquareIndices, fontSize, isBattleSquare = false, isHighlighted = false }) => {
   const style = {
     boxSizing: 'border-box',
@@ -41,7 +59,7 @@ export const Square = React.memo(({ square, index, colors, bingoImage, overlayOp
         {square.isMarked && !isBattleSquare && (
             <div
                 className="absolute inset-0 rounded-lg"
-                style={{backgroundColor: colors.markedOverlay, opacity: overlayOpacity}}
+                style={{backgroundColor: hexToRgba(colors.markedOverlay, overlayOpacity)}}
             ></div>
         )}
         {isEditing ? (
