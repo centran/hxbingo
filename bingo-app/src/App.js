@@ -158,22 +158,22 @@ const App = () => {
     }
   }, [initializeBoard, initializeBattleBoard]);
 
+  const winCheckResult = useMemo(() => {
+    if (isEditing || !squares.length) {
+      return { winningLines: [], winningSquareIndices: new Set() };
+    }
+    const lines = checkWin(squares, boardSize);
+    const indices = new Set(lines.flat());
+    const lineIds = lines.map(line => line.sort((a, b) => a - b).join('-'));
+    return { winningLines: lineIds, winningSquareIndices: indices };
+  }, [squares, boardSize, isEditing]);
+
   // Effect to check for a win whenever the squares change
   useEffect(() => {
     if (!FEATURES.WIN_DETECTION_ENABLED) return;
 
-    if (isEditing || !squares.length) {
-      if (winningLines.length > 0 || winningSquareIndices.size > 0) {
-        setWinningLines([]);
-        setWinningSquareIndices(new Set());
-      }
-      return;
-    }
+    const { winningLines: currentWinningLineIds, winningSquareIndices: allCurrentWinningIndices } = winCheckResult;
 
-    const currentWinningLines = checkWin(squares, boardSize);
-    const allCurrentWinningIndices = new Set(currentWinningLines.flat());
-
-    // Use a string comparison to check for changes to avoid re-renders on the same set of indices.
     const newWinningSquareIndicesString = JSON.stringify(Array.from(allCurrentWinningIndices).sort());
     const oldWinningSquareIndicesString = JSON.stringify(Array.from(winningSquareIndices).sort());
 
@@ -181,11 +181,6 @@ const App = () => {
       setWinningSquareIndices(allCurrentWinningIndices);
     }
 
-    const currentWinningLineIds = currentWinningLines.map(line =>
-      line.sort((a, b) => a - b).join('-')
-    );
-
-    // Only update if the actual lines have changed.
     if (JSON.stringify(currentWinningLineIds) !== JSON.stringify(winningLines)) {
       const newLinesFound = currentWinningLineIds.length > winningLines.length;
       if (newLinesFound) {
@@ -194,7 +189,7 @@ const App = () => {
       }
       setWinningLines(currentWinningLineIds);
     }
-  }, [squares, boardSize, isEditing, winningLines, winningSquareIndices]);
+  }, [winCheckResult, winningLines, winningSquareIndices]);
 
   // Handler for changing the board dimensions
   const handleBoardSizeChange = (e) => {
