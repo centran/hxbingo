@@ -191,7 +191,6 @@ const App = () => {
       if (newLinesFound) {
         setShowConfetti(true);
         setMessage('BINGO!');
-        setTimeout(() => setMessage(''), 3000);
       }
       setWinningLines(currentWinningLineIds);
     }
@@ -226,7 +225,6 @@ const App = () => {
     }
     setSquares(shuffledSquares);
     setMessage('Squares shuffled!');
-    setTimeout(() => setMessage(''), 3000);
   };
 
   // Handler for the image file upload
@@ -237,7 +235,6 @@ const App = () => {
       reader.onloadend = () => {
         setBingoImage(reader.result);
         setMessage('Marker image uploaded!');
-        setTimeout(() => setMessage(''), 3000);
       };
       reader.readAsDataURL(file);
     }
@@ -249,7 +246,6 @@ const App = () => {
       fileInputRef.current.value = null;
     }
     setMessage('Marker image removed!');
-    setTimeout(() => setMessage(''), 3000);
   };
 
   // Function to toggle the marked status of a square
@@ -283,7 +279,6 @@ const App = () => {
     if (!bingoTopic || !apiKey || isLoading) {
         if (!apiKey) {
             setMessage('Please enter your Gemini API key.');
-            setTimeout(() => setMessage(''), 3000);
         }
         return;
     }
@@ -342,7 +337,6 @@ const App = () => {
         setMessage('Error generating squares. Check the console for details.');
     } finally {
         setIsLoading(false);
-        setTimeout(() => setMessage(''), 3000);
     }
   }, [apiKey, bingoTopic, boardSize, isLoading]);
 
@@ -395,13 +389,11 @@ const App = () => {
       console.error("Failed to save board:", error);
       setMessage('Could not save board.');
     }
-    setTimeout(() => setMessage(''), 4000);
   }, [bingoImage, boardSize, squares, colors, overlayOpacity, fontSize, isBattleMode, battleSquares]);
 
   const handleLoad = useCallback(() => {
     if (!saveLoadString) {
       setMessage('Please paste a save code first.');
-      setTimeout(() => setMessage(''), 3000);
       return;
     }
     try {
@@ -426,7 +418,6 @@ const App = () => {
       console.error("Failed to load board:", error);
       setMessage('Could not load board. The code is invalid.');
     }
-    setTimeout(() => setMessage(''), 3000);
   }, [saveLoadString]);
 
   const debouncedGenerateBingoSquares = useMemo(
@@ -468,7 +459,6 @@ const App = () => {
 
     if (markedSquaresIndices.length === 0) {
       setMessage('No marked squares to remove!');
-      setTimeout(() => setMessage(''), 3000);
       return;
     }
 
@@ -511,7 +501,6 @@ const App = () => {
             setIsSpinning(false);
             setHighlightedIndex(null);
             setMessage('A marked square has been removed!');
-            setTimeout(() => setMessage(''), 3000);
           }
         }, 150);
       }
@@ -519,6 +508,17 @@ const App = () => {
 
     spin();
   }, [isSpinning, squares, toggleMarked]);
+
+  // Effect to automatically clear messages after a delay
+  useEffect(() => {
+    if (message) {
+      const timer = setTimeout(() => {
+        setMessage('');
+      }, 4000); // Set a longer default timeout
+
+      return () => clearTimeout(timer);
+    }
+  }, [message]);
 
   return (
     <div className="min-h-screen p-8 flex flex-col items-center font-sans" style={{ backgroundColor: colors.boardBg }}>
