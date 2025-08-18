@@ -103,6 +103,10 @@ const App = () => {
   const [winningLines, setWinningLines] = useState([]);
   const [winningSquareIndices, setWinningSquareIndices] = useState(new Set());
   const [showConfetti, setShowConfetti] = useState(false);
+  const [isBattleMode, setIsBattleMode] = useState(false);
+  const [battleSquares, setBattleSquares] = useState([]);
+  const [isSpinning, setIsSpinning] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -124,10 +128,25 @@ const App = () => {
     setSquares(newSquares);
   }, [boardSize.rows, boardSize.cols]);
 
+  const initializeBattleBoard = useCallback(() => {
+    const newBattleSquares = [];
+    for (let i = 0; i < boardSize.cols; i++) {
+      newBattleSquares.push({
+        id: `battle-${i}`,
+        text: `Battle ${i + 1}`,
+        isMarked: false,
+      });
+    }
+    setBattleSquares(newBattleSquares);
+  }, [boardSize.cols]);
+
   // Effect to initialize the board when the component mounts or board size changes
   useEffect(() => {
     initializeBoard();
-  }, [initializeBoard]);
+    if (FEATURES.BATTLE_MODE_ENABLED) {
+      initializeBattleBoard();
+    }
+  }, [initializeBoard, initializeBattleBoard]);
 
   // Effect to check for a win whenever the squares change
   useEffect(() => {
@@ -376,6 +395,63 @@ const App = () => {
 
   const getSquareById = useCallback((id) => squares.find(s => s.id === id), [squares]);
 
+  const handleBattleSquareClick = () => {
+    if (isSpinning) return;
+
+    const markedSquaresIndices = squares.reduce((acc, square, index) => {
+      if (square.isMarked) {
+        acc.push(index);
+      }
+      return acc;
+    }, []);
+
+    if (markedSquaresIndices.length === 0) {
+      setMessage('No marked squares to remove!');
+      setTimeout(() => setMessage(''), 3000);
+      return;
+    }
+
+    setIsSpinning(true);
+  };
+
+  useEffect(() => {
+    if (!isSpinning) return;
+
+    const markedSquaresIndices = squares.reduce((acc, square, index) => {
+      if (square.isMarked) {
+        acc.push(index);
+      }
+      return acc;
+    }, []);
+
+    let spinCount = 0;
+    const maxSpins = 10 + Math.floor(Math.random() * 5); // Vary the number of spins
+    let currentDelay = 100;
+
+    const spin = () => {
+      const randomIndex = Math.floor(Math.random() * markedSquaresIndices.length);
+      const highlighted = markedSquaresIndices[randomIndex];
+      setHighlightedIndex(highlighted);
+
+      spinCount++;
+      if (spinCount < maxSpins) {
+        currentDelay *= 1.2; // Increase delay to slow down
+        setTimeout(spin, currentDelay);
+      } else {
+        // End of spin
+        setTimeout(() => {
+          toggleMarked(highlighted);
+          setIsSpinning(false);
+          setHighlightedIndex(null);
+          setMessage('A marked square has been removed!');
+          setTimeout(() => setMessage(''), 3000);
+        }, currentDelay * 1.5);
+      }
+    };
+
+    spin();
+  }, [isSpinning, squares, toggleMarked]);
+
   return (
     <div className="min-h-screen p-8 flex flex-col items-center font-sans" style={{ backgroundColor: colors.boardBg }}>
       {showConfetti && <Confetti recycle={false} onConfettiComplete={() => setShowConfetti(false)} />}
@@ -413,6 +489,7 @@ const App = () => {
                   boardSize={boardSize}
                   winningSquareIndices={winningSquareIndices}
                   fontSize={fontSize}
+                  isHighlighted={isSpinning && highlightedIndex === index}
                 />
               ))}
             </SortableContext>
@@ -431,6 +508,7 @@ const App = () => {
                 boardSize={boardSize}
                 winningSquareIndices={winningSquareIndices}
                 fontSize={fontSize}
+                isHighlighted={isSpinning && highlightedIndex === index}
               />
             ))
           )}
@@ -446,10 +524,41 @@ const App = () => {
               isEditing={isEditing}
               winningSquareIndices={winningSquareIndices}
               fontSize={fontSize}
+              isHighlighted={true}
             />
           ) : null}
         </DragOverlay>
       </DndContext>
+
+      {FEATURES.BATTLE_MODE_ENABLED && isBattleMode && (
+        <div className="mt-4 w-full" style={{ maxWidth: '800px' }}>
+          <div
+            className="bingo-board flex flex-wrap p-2 rounded-2xl shadow-lg border-2"
+            style={{
+              borderColor: colors.squareBorder,
+              backgroundColor: colors.boardBg,
+            }}
+          >
+            {battleSquares.map((square, index) => (
+              <Square
+                key={square.id}
+                square={square}
+                index={index}
+                colors={colors}
+                bingoImage={null}
+                overlayOpacity={overlayOpacity}
+                isEditing={false}
+                handleTextChange={() => {}}
+                toggleMarked={() => handleBattleSquareClick(index)}
+                boardSize={{ rows: 1, cols: boardSize.cols }}
+                winningSquareIndices={new Set()}
+                fontSize={fontSize}
+                isBattleSquare={true}
+              />
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-col gap-6 md:flex-row md:justify-center w-full max-w-7xl mt-8">
         {/* Board Controls */}
@@ -583,6 +692,20 @@ const App = () => {
               <button onClick={handleRemoveImage} className="text-sm text-red-500 hover:text-red-700">Remove</button>
             )}
           </div>
+          {FEATURES.BATTLE_MODE_ENABLED && (
+            <div className="flex items-center justify-center mt-4">
+              <label htmlFor="battle-mode-toggle" className="flex items-center cursor-pointer">
+                <div className="relative">
+                  <input type="checkbox" id="battle-mode-toggle" className="sr-only" checked={isBattleMode} onChange={() => setIsBattleMode(!isBattleMode)} />
+                  <div className="block bg-gray-600 w-14 h-8 rounded-full"></div>
+                  <div className="dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition"></div>
+                </div>
+                <div className="ml-3 text-gray-700 font-medium">
+                  Battle Mode
+                </div>
+              </label>
+            </div>
+          )}
           <button
             onClick={() => setIsEditing(!isEditing)}
             style={{ backgroundColor: colors.buttonBg, color: colors.buttonText }}

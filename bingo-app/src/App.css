@@ -36,3 +36,12 @@
     transform: rotate(360deg);
   }
 }
+
+.battle-square {
+  cursor: pointer;
+}
+
+.highlighted-square .relative {
+  border-color: #ef4444; /* red-500 */
+  box-shadow: 0 0 15px #ef4444;
+}
