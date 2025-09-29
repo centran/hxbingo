@@ -529,12 +529,13 @@ const App = () => {
       {showConfetti && <Confetti recycle={false} onConfettiComplete={() => setShowConfetti(false)} />}
 
       {/* The BINGO Board */}
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-      >
+      <div style={{ position: 'relative', width: '100%', maxWidth: '800px' }}>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
         <div
           className="bingo-board flex flex-wrap p-4 rounded-2xl shadow-xl border-4"
           style={{
@@ -609,7 +610,14 @@ const App = () => {
             />
           ) : null}
         </DragOverlay>
-      </DndContext>
+        </DndContext>
+        {FEATURES.BLACKOUT_EASTER_EGG_ENABLED && isBlackout && (
+          <VideoOverlay
+            src="/blackout.mp4"
+            onClose={() => setIsBlackout(false)}
+          />
+        )}
+      </div>
 
       {FEATURES.BATTLE_MODE_ENABLED && isBattleMode && (
         <div className="mt-4 w-full" style={{ maxWidth: '800px' }}>
@@ -849,13 +857,6 @@ const App = () => {
         <div className="fixed top-4 right-4 bg-green-500 text-white py-2 px-4 rounded-xl shadow-lg transition-transform duration-300">
           {message}
         </div>
-      )}
-
-      {FEATURES.BLACKOUT_EASTER_EGG_ENABLED && isBlackout && (
-        <VideoOverlay
-          src="/blackout.mp4"
-          onClose={() => setIsBlackout(false)}
-        />
       )}
     </div>
   );
