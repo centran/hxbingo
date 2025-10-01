@@ -80,6 +80,16 @@ const checkWin = (squares, boardSize) => {
   return { lines, isBlackout };
 };
 
+const defaultColors = {
+  boardBg: '#ffffff',
+  squareBg: '#f3f4f6',
+  squareText: '#1f2937',
+  squareBorder: '#d1d5db',
+  buttonBg: '#4f46e5',
+  buttonText: '#ffffff',
+  markedOverlay: '#d1d5db',
+};
+
 const App = () => {
   const fileInputRef = useRef(null);
   // State for the board's dimensions
@@ -93,15 +103,7 @@ const App = () => {
   // State for a message to the user (e.g., "Image uploaded!")
   const [message, setMessage] = useState('');
   // State for custom colors
-  const [colors, setColors] = useState({
-    boardBg: '#ffffff',
-    squareBg: '#f3f4f6',
-    squareText: '#1f2937',
-    squareBorder: '#d1d5db',
-    buttonBg: '#4f46e5',
-    buttonText: '#ffffff',
-    markedOverlay: '#d1d5db',
-  });
+  const [colors, setColors] = useState(defaultColors);
   const [draftColors, setDraftColors] = useState(colors);
 
   useEffect(() => {
@@ -466,6 +468,51 @@ const App = () => {
     loadBoard(saveLoadString);
   }, [saveLoadString, loadBoard]);
 
+  const handleReset = useCallback(() => {
+    const defaultSize = { rows: 5, cols: 5 };
+    setBoardSize(defaultSize);
+
+    const newSquares = [];
+    for (let i = 0; i < defaultSize.rows * defaultSize.cols; i++) {
+      newSquares.push({
+        id: i + 1,
+        text: `Square ${i + 1}`,
+        isMarked: false,
+      });
+    }
+    setSquares(newSquares);
+
+    if (FEATURES.BATTLE_MODE_ENABLED) {
+        const newBattleSquares = [];
+        for (let i = 0; i < defaultSize.cols; i++) {
+          newBattleSquares.push({
+            id: `battle-${i}`,
+            text: `Battle ${i + 1}`,
+            isMarked: false,
+          });
+        }
+        setBattleSquares(newBattleSquares);
+    }
+
+    setColors(defaultColors);
+    setBingoImage(null);
+    setOverlayOpacity(0.8);
+    setFontSize(1);
+    setIsEditing(true);
+    setSaveLoadString('');
+    setBingoTopic('');
+    setWinningLines([]);
+    setWinningSquareIndices(new Set());
+    setShowConfetti(false);
+    setIsBlackout(false);
+    setIsBattleMode(false);
+
+    // Clear the cookie
+    document.cookie = 'bingoBoard=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/';
+
+    setMessage('Board has been reset to default settings.');
+  }, []);
+
   const debouncedGenerateBingoSquares = useMemo(
     () => debounce(generateBingoSquares, 300),
     [generateBingoSquares]
@@ -736,6 +783,9 @@ const App = () => {
                 Load from Text Box
               </button>
             </div>
+            <button onClick={handleReset} className="mt-2 w-full py-2 px-4 rounded-lg font-bold shadow-md text-sm bg-red-600 hover:bg-red-700 text-white">
+              Reset Board
+            </button>
           </div>
         </div>
 
