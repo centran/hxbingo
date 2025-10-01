@@ -161,13 +161,61 @@ const App = () => {
     setBattleSquares(newBattleSquares);
   }, [boardSize.cols]);
 
-  // Effect to initialize the board when the component mounts or board size changes
+  const loadBoard = useCallback((encodedString) => {
+    if (!encodedString) {
+      return;
+    }
+    try {
+      const decoded = fromBase64(encodedString);
+      const decompressed = pako.inflate(decoded, { to: 'string' });
+      const loadedData = JSON.parse(decompressed);
+
+      if (loadedData.boardSize && loadedData.squares && loadedData.colors) {
+        setBoardSize(loadedData.boardSize);
+        setSquares(loadedData.squares);
+        setColors(loadedData.colors);
+        setBingoImage(loadedData.bingoImage || null);
+        setOverlayOpacity(loadedData.overlayOpacity || 0.8);
+        setFontSize(loadedData.fontSize || 1);
+        setIsBattleMode(loadedData.isBattleMode || false);
+        setBattleSquares(loadedData.battleSquares || []);
+        setMessage('Board loaded successfully!');
+      } else {
+        throw new Error("Invalid save data structure.");
+      }
+    } catch (error) {
+      console.error("Failed to load board:", error);
+      setMessage('Could not load board. The code is invalid.');
+    }
+  }, []);
+
+  const isInitialMount = useRef(true);
+
+  // Effect to initialize or load the board from a cookie
   useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      const getCookie = (name) => {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            let cookie = cookies[i].trim();
+            if (cookie.startsWith(name + '=')) {
+                return cookie.substring(name.length + 1);
+            }
+        }
+        return null;
+      };
+      const savedBoardData = getCookie('bingoBoard');
+      if (savedBoardData) {
+        loadBoard(savedBoardData);
+        return;
+      }
+    }
     initializeBoard();
     if (FEATURES.BATTLE_MODE_ENABLED) {
       initializeBattleBoard();
     }
-  }, [initializeBoard, initializeBattleBoard]);
+  }, [initializeBoard, initializeBattleBoard, loadBoard]);
 
   const winCheckResult = useMemo(() => {
     if (isEditing || !squares.length) {
@@ -379,7 +427,7 @@ const App = () => {
 
   const handleSave = useCallback(() => {
     let imageToSave = bingoImage;
-    let saveMessage = 'Board saved to text box!';
+    let saveMessage = 'Board saved to text box and cookie!';
 
     if (bingoImage && bingoImage.length > 100 * 1024) {
       imageToSave = null;
@@ -401,6 +449,12 @@ const App = () => {
       const compressed = pako.deflate(jsonString);
       const encoded = toBase64(compressed);
       setSaveLoadString(encoded);
+
+      // Save to cookie
+      const expiryDate = new Date();
+      expiryDate.setDate(expiryDate.getDate() + 30);
+      document.cookie = `bingoBoard=${encoded};expires=${expiryDate.toUTCString()};path=/`;
+
       setMessage(saveMessage);
     } catch (error) {
       console.error("Failed to save board:", error);
@@ -413,29 +467,8 @@ const App = () => {
       setMessage('Please paste a save code first.');
       return;
     }
-    try {
-      const decoded = fromBase64(saveLoadString);
-      const decompressed = pako.inflate(decoded, { to: 'string' });
-      const loadedData = JSON.parse(decompressed);
-
-      if (loadedData.boardSize && loadedData.squares && loadedData.colors) {
-        setBoardSize(loadedData.boardSize);
-        setSquares(loadedData.squares);
-        setColors(loadedData.colors);
-        setBingoImage(loadedData.bingoImage || null);
-        setOverlayOpacity(loadedData.overlayOpacity || 0.8);
-        setFontSize(loadedData.fontSize || 1);
-        setIsBattleMode(loadedData.isBattleMode || false);
-        setBattleSquares(loadedData.battleSquares || []);
-        setMessage('Board loaded successfully!');
-      } else {
-        throw new Error("Invalid save data structure.");
-      }
-    } catch (error) {
-      console.error("Failed to load board:", error);
-      setMessage('Could not load board. The code is invalid.');
-    }
-  }, [saveLoadString]);
+    loadBoard(saveLoadString);
+  }, [saveLoadString, loadBoard]);
 
   const debouncedGenerateBingoSquares = useMemo(
     () => debounce(generateBingoSquares, 300),
