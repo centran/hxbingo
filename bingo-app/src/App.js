@@ -613,7 +613,7 @@ const App = () => {
         </DndContext>
         {FEATURES.BLACKOUT_EASTER_EGG_ENABLED && isBlackout && (
           <VideoOverlay
-            src="/blackout.mp4"
+            src="/hxbingo/blackout.mp4"
             onClose={() => setIsBlackout(false)}
           />
         )}
