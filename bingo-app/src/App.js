@@ -202,11 +202,9 @@ const App = () => {
 
   // Handler for changing the board dimensions
   const handleBoardSizeChange = (e) => {
-    const { name, value } = e.target;
-    setBoardSize((prev) => ({
-      ...prev,
-      [name]: Math.max(1, parseInt(value) || 1),
-    }));
+    const { value } = e.target;
+    const [rows, cols] = value.split('x').map(Number);
+    setBoardSize({ rows, cols });
   };
 
   // Handler for text changes in a square's textarea
@@ -655,27 +653,20 @@ const App = () => {
         {/* Board Controls */}
         <div className="bg-white p-6 rounded-2xl shadow-xl border border-gray-200">
           <h2 className="text-xl font-bold mb-4">Board Settings</h2>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Rows</label>
-              <input
-                type="number"
-                name="rows"
-                value={boardSize.rows}
-                onChange={handleBoardSizeChange}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 transition ease-in-out"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Columns</label>
-              <input
-                type="number"
-                name="cols"
-                value={boardSize.cols}
-                onChange={handleBoardSizeChange}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 transition ease-in-out"
-              />
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Board Size</label>
+            <select
+              name="boardSize"
+              value={`${boardSize.rows}x${boardSize.cols}`}
+              onChange={handleBoardSizeChange}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 transition ease-in-out"
+            >
+              <option value="3x3">3x3</option>
+              <option value="4x4">4x4</option>
+              <option value="5x5">5x5</option>
+              <option value="6x6">6x6</option>
+              <option value="7x7">7x7</option>
+            </select>
           </div>
           <button
             onClick={shuffleSquares}
