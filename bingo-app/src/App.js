@@ -102,6 +102,12 @@ const App = () => {
     buttonText: '#ffffff',
     markedOverlay: '#d1d5db',
   });
+  const [draftColors, setDraftColors] = useState(colors);
+
+  useEffect(() => {
+    setDraftColors(colors);
+  }, [colors]);
+
   // State for the overlay opacity
   const [overlayOpacity, setOverlayOpacity] = useState(0.8);
   const [fontSize, setFontSize] = useState(1);
@@ -202,11 +208,9 @@ const App = () => {
 
   // Handler for changing the board dimensions
   const handleBoardSizeChange = (e) => {
-    const { name, value } = e.target;
-    setBoardSize((prev) => ({
-      ...prev,
-      [name]: Math.max(1, parseInt(value) || 1),
-    }));
+    const { value } = e.target;
+    const [rows, cols] = value.split('x').map(Number);
+    setBoardSize({ rows, cols });
   };
 
   // Handler for text changes in a square's textarea
@@ -269,13 +273,22 @@ const App = () => {
     );
   }, [isEditing]);
 
+  const debouncedSetColors = useMemo(
+    () => debounce((newColors) => {
+      setColors(newColors);
+    }, 200),
+    [] // setColors is stable and doesn't need to be a dependency
+  );
+
   // Handler for changing colors
   const handleColorChange = (e) => {
     const { name, value } = e.target;
-    setColors((prev) => ({
-      ...prev,
+    const newDraftColors = {
+      ...draftColors,
       [name]: value,
-    }));
+    };
+    setDraftColors(newDraftColors);
+    debouncedSetColors(newDraftColors);
   };
 
   // Function to generate BINGO square text using the Gemini API
@@ -655,27 +668,20 @@ const App = () => {
         {/* Board Controls */}
         <div className="bg-white p-6 rounded-2xl shadow-xl border border-gray-200">
           <h2 className="text-xl font-bold mb-4">Board Settings</h2>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Rows</label>
-              <input
-                type="number"
-                name="rows"
-                value={boardSize.rows}
-                onChange={handleBoardSizeChange}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 transition ease-in-out"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Columns</label>
-              <input
-                type="number"
-                name="cols"
-                value={boardSize.cols}
-                onChange={handleBoardSizeChange}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 transition ease-in-out"
-              />
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Board Size</label>
+            <select
+              name="boardSize"
+              value={`${boardSize.rows}x${boardSize.cols}`}
+              onChange={handleBoardSizeChange}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 transition ease-in-out"
+            >
+              <option value="3x3">3x3</option>
+              <option value="4x4">4x4</option>
+              <option value="5x5">5x5</option>
+              <option value="6x6">6x6</option>
+              <option value="7x7">7x7</option>
+            </select>
           </div>
           <button
             onClick={shuffleSquares}
@@ -710,32 +716,32 @@ const App = () => {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700">Board BG</label>
-              <input type="color" name="boardBg" value={colors.boardBg} onChange={handleColorChange} className="w-full h-8" />
+              <input type="color" name="boardBg" value={draftColors.boardBg} onChange={handleColorChange} className="w-full h-8" />
               <button onClick={() => setColors(prev => ({ ...prev, boardBg: 'transparent' }))} className="text-xs text-gray-500 hover:text-gray-700 mt-1">Set Transparent</button>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">Square BG</label>
-              <input type="color" name="squareBg" value={colors.squareBg} onChange={handleColorChange} className="w-full h-8" />
+              <input type="color" name="squareBg" value={draftColors.squareBg} onChange={handleColorChange} className="w-full h-8" />
               <button onClick={() => setColors(prev => ({ ...prev, squareBg: 'transparent' }))} className="text-xs text-gray-500 hover:text-gray-700 mt-1">Set Transparent</button>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">Text Color</label>
-              <input type="color" name="squareText" value={colors.squareText} onChange={handleColorChange} className="w-full h-8" />
+              <input type="color" name="squareText" value={draftColors.squareText} onChange={handleColorChange} className="w-full h-8" />
               <button onClick={() => setColors(prev => ({ ...prev, squareText: 'transparent' }))} className="text-xs text-gray-500 hover:text-gray-700 mt-1">Set Transparent</button>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">Border Color</label>
-              <input type="color" name="squareBorder" value={colors.squareBorder} onChange={handleColorChange} className="w-full h-8" />
+              <input type="color" name="squareBorder" value={draftColors.squareBorder} onChange={handleColorChange} className="w-full h-8" />
               <button onClick={() => setColors(prev => ({ ...prev, squareBorder: 'transparent' }))} className="text-xs text-gray-500 hover:text-gray-700 mt-1">Set Transparent</button>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">Button BG</label>
-              <input type="color" name="buttonBg" value={colors.buttonBg} onChange={handleColorChange} className="w-full h-8" />
+              <input type="color" name="buttonBg" value={draftColors.buttonBg} onChange={handleColorChange} className="w-full h-8" />
               <button onClick={() => setColors(prev => ({ ...prev, buttonBg: 'transparent' }))} className="text-xs text-gray-500 hover:text-gray-700 mt-1">Set Transparent</button>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">Marker Overlay</label>
-              <input type="color" name="markedOverlay" value={colors.markedOverlay} onChange={handleColorChange} className="w-full h-8" />
+              <input type="color" name="markedOverlay" value={draftColors.markedOverlay} onChange={handleColorChange} className="w-full h-8" />
               <button onClick={() => setColors(prev => ({ ...prev, markedOverlay: 'transparent' }))} className="text-xs text-gray-500 hover:text-gray-700 mt-1">Set Transparent</button>
             </div>
           </div>
