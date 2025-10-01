@@ -102,12 +102,6 @@ const App = () => {
     buttonText: '#ffffff',
     markedOverlay: '#d1d5db',
   });
-  const [draftColors, setDraftColors] = useState(colors);
-
-  useEffect(() => {
-    setDraftColors(colors);
-  }, [colors]);
-
   // State for the overlay opacity
   const [overlayOpacity, setOverlayOpacity] = useState(0.8);
   const [fontSize, setFontSize] = useState(1);
@@ -208,9 +202,11 @@ const App = () => {
 
   // Handler for changing the board dimensions
   const handleBoardSizeChange = (e) => {
-    const { value } = e.target;
-    const [rows, cols] = value.split('x').map(Number);
-    setBoardSize({ rows, cols });
+    const { name, value } = e.target;
+    setBoardSize((prev) => ({
+      ...prev,
+      [name]: Math.max(1, parseInt(value) || 1),
+    }));
   };
 
   // Handler for text changes in a square's textarea
@@ -273,22 +269,13 @@ const App = () => {
     );
   }, [isEditing]);
 
-  const debouncedSetColors = useMemo(
-    () => debounce((newColors) => {
-      setColors(newColors);
-    }, 200),
-    [] // setColors is stable and doesn't need to be a dependency
-  );
-
   // Handler for changing colors
   const handleColorChange = (e) => {
     const { name, value } = e.target;
-    const newDraftColors = {
-      ...draftColors,
+    setColors((prev) => ({
+      ...prev,
       [name]: value,
-    };
-    setDraftColors(newDraftColors);
-    debouncedSetColors(newDraftColors);
+    }));
   };
 
   // Function to generate BINGO square text using the Gemini API
@@ -664,24 +651,55 @@ const App = () => {
         </div>
       )}
 
-      <div className="flex flex-col gap-6 md:flex-row md:justify-center w-full max-w-7xl mt-8">
+      <div className="w-full max-w-7xl mt-8 flex flex-col gap-6">
+        <div className="bg-white p-4 rounded-2xl shadow-xl border border-gray-200 flex flex-col md:flex-row justify-center items-center gap-4 md:gap-8">
+            <button
+              onClick={() => setIsEditing(!isEditing)}
+              style={{ backgroundColor: colors.buttonBg, color: colors.buttonText }}
+              className="py-3 px-6 text-lg rounded-lg font-bold shadow-md hover:scale-105 transition-all duration-200 w-full md:w-auto"
+            >
+              {isEditing ? 'Start Playing' : 'Edit Board'}
+            </button>
+            {FEATURES.BATTLE_MODE_ENABLED && (
+            <div className="flex items-center">
+                <label htmlFor="battle-mode-toggle" className="flex items-center cursor-pointer">
+                <div className="relative">
+                    <input type="checkbox" id="battle-mode-toggle" className="sr-only" checked={isBattleMode} onChange={() => setIsBattleMode(!isBattleMode)} />
+                    <div className="block bg-gray-700 w-14 h-8 rounded-full"></div>
+                    <div className="dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition"></div>
+                </div>
+                <div className="ml-3 text-gray-700 font-medium">
+                    Battle Mode
+                </div>
+                </label>
+            </div>
+            )}
+        </div>
+        <div className="flex flex-col gap-6 md:flex-row md:justify-center">
         {/* Board Controls */}
         <div className="bg-white p-6 rounded-2xl shadow-xl border border-gray-200">
           <h2 className="text-xl font-bold mb-4">Board Settings</h2>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Board Size</label>
-            <select
-              name="boardSize"
-              value={`${boardSize.rows}x${boardSize.cols}`}
-              onChange={handleBoardSizeChange}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 transition ease-in-out"
-            >
-              <option value="3x3">3x3</option>
-              <option value="4x4">4x4</option>
-              <option value="5x5">5x5</option>
-              <option value="6x6">6x6</option>
-              <option value="7x7">7x7</option>
-            </select>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Rows</label>
+              <input
+                type="number"
+                name="rows"
+                value={boardSize.rows}
+                onChange={handleBoardSizeChange}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 transition ease-in-out"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Columns</label>
+              <input
+                type="number"
+                name="cols"
+                value={boardSize.cols}
+                onChange={handleBoardSizeChange}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 transition ease-in-out"
+              />
+            </div>
           </div>
           <button
             onClick={shuffleSquares}
@@ -692,57 +710,20 @@ const App = () => {
           </button>
           <hr className="my-4" />
           <div>
-            <h3 className="text-lg font-bold mb-2">💾 Save/Load Board</h3>
-            <textarea
-              className="w-full h-24 p-2 border border-gray-300 rounded-md shadow-sm"
-              placeholder="Copy code from here, or paste code to load."
-              value={saveLoadString}
-              onChange={(e) => setSaveLoadString(e.target.value)}
-            />
-            <div className="flex gap-4 mt-2">
-              <button onClick={debouncedHandleSave} className="w-full py-2 px-4 rounded-lg font-bold shadow-md text-sm" style={{ backgroundColor: colors.buttonBg, color: colors.buttonText }}>
-                Save to Text Box
-              </button>
-              <button onClick={debouncedHandleLoad} className="w-full py-2 px-4 rounded-lg font-bold shadow-md text-sm" style={{ backgroundColor: colors.buttonBg, color: colors.buttonText }}>
-                Load from Text Box
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Customization Controls */}
-        <div className="bg-white p-6 rounded-2xl shadow-xl border border-gray-200">
-          <h2 className="text-xl font-bold mb-4">Customization</h2>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Board BG</label>
-              <input type="color" name="boardBg" value={draftColors.boardBg} onChange={handleColorChange} className="w-full h-8" />
-              <button onClick={() => setColors(prev => ({ ...prev, boardBg: 'transparent' }))} className="text-xs text-gray-500 hover:text-gray-700 mt-1">Set Transparent</button>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Square BG</label>
-              <input type="color" name="squareBg" value={draftColors.squareBg} onChange={handleColorChange} className="w-full h-8" />
-              <button onClick={() => setColors(prev => ({ ...prev, squareBg: 'transparent' }))} className="text-xs text-gray-500 hover:text-gray-700 mt-1">Set Transparent</button>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Text Color</label>
-              <input type="color" name="squareText" value={draftColors.squareText} onChange={handleColorChange} className="w-full h-8" />
-              <button onClick={() => setColors(prev => ({ ...prev, squareText: 'transparent' }))} className="text-xs text-gray-500 hover:text-gray-700 mt-1">Set Transparent</button>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Border Color</label>
-              <input type="color" name="squareBorder" value={draftColors.squareBorder} onChange={handleColorChange} className="w-full h-8" />
-              <button onClick={() => setColors(prev => ({ ...prev, squareBorder: 'transparent' }))} className="text-xs text-gray-500 hover:text-gray-700 mt-1">Set Transparent</button>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Button BG</label>
-              <input type="color" name="buttonBg" value={draftColors.buttonBg} onChange={handleColorChange} className="w-full h-8" />
-              <button onClick={() => setColors(prev => ({ ...prev, buttonBg: 'transparent' }))} className="text-xs text-gray-500 hover:text-gray-700 mt-1">Set Transparent</button>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Marker Overlay</label>
-              <input type="color" name="markedOverlay" value={draftColors.markedOverlay} onChange={handleColorChange} className="w-full h-8" />
-              <button onClick={() => setColors(prev => ({ ...prev, markedOverlay: 'transparent' }))} className="text-xs text-gray-500 hover:text-gray-700 mt-1">Set Transparent</button>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Upload Marker Image
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleImageUpload}
+                accept="image/*"
+                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"
+              />
+              {bingoImage && (
+                <button onClick={handleRemoveImage} className="text-sm text-red-500 hover:text-red-700">Remove</button>
+              )}
             </div>
           </div>
           <div className="mt-4">
@@ -769,47 +750,62 @@ const App = () => {
                 className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
             />
           </div>
+          <hr className="my-4" />
+          <div>
+            <h3 className="text-lg font-bold mb-2">💾 Save/Load Board</h3>
+            <textarea
+              className="w-full h-24 p-2 border border-gray-300 rounded-md shadow-sm"
+              placeholder="Copy code from here, or paste code to load."
+              value={saveLoadString}
+              onChange={(e) => setSaveLoadString(e.target.value)}
+            />
+            <div className="flex gap-4 mt-2">
+              <button onClick={debouncedHandleSave} className="w-full py-2 px-4 rounded-lg font-bold shadow-md text-sm" style={{ backgroundColor: colors.buttonBg, color: colors.buttonText }}>
+                Save to Text Box
+              </button>
+              <button onClick={debouncedHandleLoad} className="w-full py-2 px-4 rounded-lg font-bold shadow-md text-sm" style={{ backgroundColor: colors.buttonBg, color: colors.buttonText }}>
+                Load from Text Box
+              </button>
+            </div>
+          </div>
         </div>
 
-        {/* Image Upload and Play/Edit Mode */}
+        {/* Customization Controls */}
         <div className="bg-white p-6 rounded-2xl shadow-xl border border-gray-200">
-          <h2 className="text-xl font-bold mb-4">Marker & Mode</h2>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Upload Marker Image
-          </label>
-          <div className="flex items-center gap-2">
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleImageUpload}
-              accept="image/*"
-              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"
-            />
-            {bingoImage && (
-              <button onClick={handleRemoveImage} className="text-sm text-red-500 hover:text-red-700">Remove</button>
-            )}
-          </div>
-          {FEATURES.BATTLE_MODE_ENABLED && (
-            <div className="flex items-center justify-center mt-4">
-              <label htmlFor="battle-mode-toggle" className="flex items-center cursor-pointer">
-                <div className="relative">
-                  <input type="checkbox" id="battle-mode-toggle" className="sr-only" checked={isBattleMode} onChange={() => setIsBattleMode(!isBattleMode)} />
-                  <div className="block bg-gray-700 w-14 h-8 rounded-full"></div>
-                  <div className="dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition"></div>
-                </div>
-                <div className="ml-3 text-gray-700 font-medium">
-                  Battle Mode
-                </div>
-              </label>
+          <h2 className="text-xl font-bold mb-4">Customization</h2>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Board BG</label>
+              <input type="color" name="boardBg" value={colors.boardBg} onChange={handleColorChange} className="w-full h-8" />
+              <button onClick={() => setColors(prev => ({ ...prev, boardBg: 'transparent' }))} className="text-xs text-gray-500 hover:text-gray-700 mt-1">Set Transparent</button>
             </div>
-          )}
-          <button
-            onClick={() => setIsEditing(!isEditing)}
-            style={{ backgroundColor: colors.buttonBg, color: colors.buttonText }}
-            className="mt-4 w-full py-2 px-4 rounded-lg font-bold shadow-md hover:scale-105 transition-all duration-200"
-          >
-            {isEditing ? 'Start Playing' : 'Edit Board'}
-          </button>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Square BG</label>
+              <input type="color" name="squareBg" value={colors.squareBg} onChange={handleColorChange} className="w-full h-8" />
+              <button onClick={() => setColors(prev => ({ ...prev, squareBg: 'transparent' }))} className="text-xs text-gray-500 hover:text-gray-700 mt-1">Set Transparent</button>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Text Color</label>
+              <input type="color" name="squareText" value={colors.squareText} onChange={handleColorChange} className="w-full h-8" />
+              <button onClick={() => setColors(prev => ({ ...prev, squareText: 'transparent' }))} className="text-xs text-gray-500 hover:text-gray-700 mt-1">Set Transparent</button>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Border Color</label>
+              <input type="color" name="squareBorder" value={colors.squareBorder} onChange={handleColorChange} className="w-full h-8" />
+              <button onClick={() => setColors(prev => ({ ...prev, squareBorder: 'transparent' }))} className="text-xs text-gray-500 hover:text-gray-700 mt-1">Set Transparent</button>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Button BG</label>
+              <input type="color" name="buttonBg" value={colors.buttonBg} onChange={handleColorChange} className="w-full h-8" />
+              <button onClick={() => setColors(prev => ({ ...prev, buttonBg: 'transparent' }))} className="text-xs text-gray-500 hover:text-gray-700 mt-1">Set Transparent</button>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Marker Overlay</label>
+              <input type="color" name="markedOverlay" value={colors.markedOverlay} onChange={handleColorChange} className="w-full h-8" />
+              <button onClick={() => setColors(prev => ({ ...prev, markedOverlay: 'transparent' }))} className="text-xs text-gray-500 hover:text-gray-700 mt-1">Set Transparent</button>
+            </div>
+          </div>
+        </div>
         </div>
       </div>
 
