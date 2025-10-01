@@ -190,9 +190,15 @@ const App = () => {
   }, []);
 
   const isInitialMount = useRef(true);
+  const fromCookieLoad = useRef(false);
 
   // Effect to initialize or load the board from a cookie
   useEffect(() => {
+    if (fromCookieLoad.current) {
+      fromCookieLoad.current = false;
+      return;
+    }
+
     if (isInitialMount.current) {
       isInitialMount.current = false;
       const getCookie = (name) => {
@@ -207,6 +213,7 @@ const App = () => {
       };
       const savedBoardData = getCookie('bingoBoard');
       if (savedBoardData) {
+        fromCookieLoad.current = true;
         loadBoard(savedBoardData);
         return;
       }
