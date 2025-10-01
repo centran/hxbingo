@@ -189,40 +189,29 @@ const App = () => {
     }
   }, []);
 
-  const isInitialMount = useRef(true);
-  const fromCookieLoad = useRef(false);
-
   // Effect to initialize or load the board from a cookie
   useEffect(() => {
-    if (fromCookieLoad.current) {
-      fromCookieLoad.current = false;
-      return;
-    }
-
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
-      const getCookie = (name) => {
-        const cookies = document.cookie.split(';');
-        for (let i = 0; i < cookies.length; i++) {
-            let cookie = cookies[i].trim();
-            if (cookie.startsWith(name + '=')) {
-                return cookie.substring(name.length + 1);
-            }
-        }
-        return null;
-      };
-      const savedBoardData = getCookie('bingoBoard');
-      if (savedBoardData) {
-        fromCookieLoad.current = true;
-        loadBoard(savedBoardData);
-        return;
+    const getCookie = (name) => {
+      const cookies = document.cookie.split(';');
+      for (let i = 0; i < cookies.length; i++) {
+          let cookie = cookies[i].trim();
+          if (cookie.startsWith(name + '=')) {
+              return cookie.substring(name.length + 1);
+          }
+      }
+      return null;
+    };
+    const savedBoardData = getCookie('bingoBoard');
+    if (savedBoardData) {
+      loadBoard(savedBoardData);
+    } else {
+      initializeBoard();
+      if (FEATURES.BATTLE_MODE_ENABLED) {
+        initializeBattleBoard();
       }
     }
-    initializeBoard();
-    if (FEATURES.BATTLE_MODE_ENABLED) {
-      initializeBattleBoard();
-    }
-  }, [initializeBoard, initializeBattleBoard, loadBoard]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const winCheckResult = useMemo(() => {
     if (isEditing || !squares.length) {
