@@ -19,6 +19,7 @@ import pako from 'pako';
 import { FEATURES } from './config';
 import { SortableSquare } from './SortableSquare';
 import { Square } from './Square'; // We'll create a simple static square component
+import VideoOverlay from './VideoOverlay';
 import Confetti from 'react-confetti';
 
 // Debounce function to limit the rate of function execution
@@ -34,6 +35,9 @@ const debounce = (func, delay) => {
 const checkWin = (squares, boardSize) => {
   const { rows, cols } = boardSize;
   const lines = [];
+
+  // Blackout check - all squares are marked
+  const isBlackout = squares.length > 0 && squares.every(s => s.isMarked);
 
   // Horizontal
   for (let r = 0; r < rows; r++) {
@@ -73,7 +77,7 @@ const checkWin = (squares, boardSize) => {
     }
   }
 
-  return lines;
+  return { lines, isBlackout };
 };
 
 const App = () => {
@@ -113,6 +117,7 @@ const App = () => {
   const [winningLines, setWinningLines] = useState([]);
   const [winningSquareIndices, setWinningSquareIndices] = useState(new Set());
   const [showConfetti, setShowConfetti] = useState(false);
+  const [isBlackout, setIsBlackout] = useState(false);
   const [isBattleMode, setIsBattleMode] = useState(false);
   const [battleSquares, setBattleSquares] = useState([]);
   const [isSpinning, setIsSpinning] = useState(false);
@@ -160,19 +165,23 @@ const App = () => {
 
   const winCheckResult = useMemo(() => {
     if (isEditing || !squares.length) {
-      return { winningLines: [], winningSquareIndices: new Set() };
+      return { winningLines: [], winningSquareIndices: new Set(), isBlackout: false };
     }
-    const lines = checkWin(squares, boardSize);
+    const { lines, isBlackout } = checkWin(squares, boardSize);
     const indices = new Set(lines.flat());
     const lineIds = lines.map(line => line.sort((a, b) => a - b).join('-'));
-    return { winningLines: lineIds, winningSquareIndices: indices };
+    return { winningLines: lineIds, winningSquareIndices: indices, isBlackout };
   }, [squares, boardSize, isEditing]);
 
   // Effect to check for a win whenever the squares change
   useEffect(() => {
     if (!FEATURES.WIN_DETECTION_ENABLED) return;
 
-    const { winningLines: currentWinningLineIds, winningSquareIndices: allCurrentWinningIndices } = winCheckResult;
+    const { winningLines: currentWinningLineIds, winningSquareIndices: allCurrentWinningIndices, isBlackout: currentIsBlackout } = winCheckResult;
+
+    if (FEATURES.BLACKOUT_EASTER_EGG_ENABLED) {
+      setIsBlackout(currentIsBlackout);
+    }
 
     const newWinningSquareIndicesString = JSON.stringify(Array.from(allCurrentWinningIndices).sort());
     const oldWinningSquareIndicesString = JSON.stringify(Array.from(winningSquareIndices).sort());
@@ -520,12 +529,13 @@ const App = () => {
       {showConfetti && <Confetti recycle={false} onConfettiComplete={() => setShowConfetti(false)} />}
 
       {/* The BINGO Board */}
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-      >
+      <div style={{ position: 'relative', width: '100%', maxWidth: '800px' }}>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
         <div
           className="bingo-board flex flex-wrap p-4 rounded-2xl shadow-xl border-4"
           style={{
@@ -600,7 +610,14 @@ const App = () => {
             />
           ) : null}
         </DragOverlay>
-      </DndContext>
+        </DndContext>
+        {FEATURES.BLACKOUT_EASTER_EGG_ENABLED && isBlackout && (
+          <VideoOverlay
+            src="/blackout.mp4"
+            onClose={() => setIsBlackout(false)}
+          />
+        )}
+      </div>
 
       {FEATURES.BATTLE_MODE_ENABLED && isBattleMode && (
         <div className="mt-4 w-full" style={{ maxWidth: '800px' }}>
