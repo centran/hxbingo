@@ -273,11 +273,11 @@ const App = () => {
     );
   }, [isEditing]);
 
-  const debouncedSetColors = useCallback(
-    debounce((newColors) => {
+  const debouncedSetColors = useMemo(
+    () => debounce((newColors) => {
       setColors(newColors);
     }, 200),
-    []
+    [] // setColors is stable and doesn't need to be a dependency
   );
 
   // Handler for changing colors
