@@ -256,7 +256,30 @@ const App = () => {
   const handleBoardSizeChange = (e) => {
     const { value } = e.target;
     const [rows, cols] = value.split('x').map(Number);
-    setBoardSize({ rows, cols });
+    const newSize = { rows, cols };
+    setBoardSize(newSize);
+
+    const newSquares = [];
+    for (let i = 0; i < newSize.rows * newSize.cols; i++) {
+      newSquares.push({
+        id: i + 1,
+        text: `Square ${i + 1}`,
+        isMarked: false,
+      });
+    }
+    setSquares(newSquares);
+
+    if (FEATURES.BATTLE_MODE_ENABLED) {
+        const newBattleSquares = [];
+        for (let i = 0; i < newSize.cols; i++) {
+          newBattleSquares.push({
+            id: `battle-${i}`,
+            text: `Battle ${i + 1}`,
+            isMarked: false,
+          });
+        }
+        setBattleSquares(newBattleSquares);
+    }
   };
 
   // Handler for text changes in a square's textarea
