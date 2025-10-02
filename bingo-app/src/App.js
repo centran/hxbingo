@@ -93,7 +93,6 @@ const defaultColors = {
 const App = () => {
   const fileInputRef = useRef(null);
   const isInitialMount = useRef(true);
-  const autoSaveCallback = useRef(() => {});
   // State for the board's dimensions
   const [boardSize, setBoardSize] = useState({ rows: 5, cols: 5 });
   // State for the squares, each with text and marked status
@@ -799,6 +798,27 @@ const App = () => {
         {/* Board Controls */}
         <div className="bg-white p-6 rounded-2xl shadow-xl border border-gray-200">
           <h2 className="text-xl font-bold mb-4">Board Settings</h2>
+          <button
+            onClick={() => setIsEditing(!isEditing)}
+            style={{ backgroundColor: colors.buttonBg, color: colors.buttonText }}
+            className="w-full py-2 px-4 rounded-lg font-bold shadow-md hover:scale-105 transition-all duration-200 mb-4"
+          >
+            {isEditing ? 'Start Playing' : 'Edit Board'}
+          </button>
+          {FEATURES.BATTLE_MODE_ENABLED && (
+            <div className="flex items-center justify-center mb-4">
+              <label htmlFor="battle-mode-toggle" className="flex items-center cursor-pointer">
+                <div className="relative">
+                  <input type="checkbox" id="battle-mode-toggle" className="sr-only" checked={isBattleMode} onChange={() => setIsBattleMode(!isBattleMode)} />
+                  <div className="block bg-gray-700 w-14 h-8 rounded-full"></div>
+                  <div className="dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition"></div>
+                </div>
+                <div className="ml-3 text-gray-700 font-medium">
+                  Battle Mode
+                </div>
+              </label>
+            </div>
+          )}
           <div>
             <label className="block text-sm font-medium text-gray-700">Board Size</label>
             <select
@@ -880,6 +900,23 @@ const App = () => {
             </div>
           </div>
           <div className="mt-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Upload Marker Image
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleImageUpload}
+                accept="image/*"
+                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"
+              />
+              {bingoImage && (
+                <button onClick={handleRemoveImage} className="text-sm text-red-500 hover:text-red-700">Remove</button>
+              )}
+            </div>
+          </div>
+          <div className="mt-4">
             <label className="block text-sm font-medium text-gray-700">Marker Opacity</label>
             <input
                 type="range"
@@ -903,47 +940,6 @@ const App = () => {
                 className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
             />
           </div>
-        </div>
-
-        {/* Image Upload and Play/Edit Mode */}
-        <div className="bg-white p-6 rounded-2xl shadow-xl border border-gray-200">
-          <h2 className="text-xl font-bold mb-4">Marker & Mode</h2>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Upload Marker Image
-          </label>
-          <div className="flex items-center gap-2">
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleImageUpload}
-              accept="image/*"
-              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"
-            />
-            {bingoImage && (
-              <button onClick={handleRemoveImage} className="text-sm text-red-500 hover:text-red-700">Remove</button>
-            )}
-          </div>
-          {FEATURES.BATTLE_MODE_ENABLED && (
-            <div className="flex items-center justify-center mt-4">
-              <label htmlFor="battle-mode-toggle" className="flex items-center cursor-pointer">
-                <div className="relative">
-                  <input type="checkbox" id="battle-mode-toggle" className="sr-only" checked={isBattleMode} onChange={() => setIsBattleMode(!isBattleMode)} />
-                  <div className="block bg-gray-700 w-14 h-8 rounded-full"></div>
-                  <div className="dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition"></div>
-                </div>
-                <div className="ml-3 text-gray-700 font-medium">
-                  Battle Mode
-                </div>
-              </label>
-            </div>
-          )}
-          <button
-            onClick={() => setIsEditing(!isEditing)}
-            style={{ backgroundColor: colors.buttonBg, color: colors.buttonText }}
-            className="mt-4 w-full py-2 px-4 rounded-lg font-bold shadow-md hover:scale-105 transition-all duration-200"
-          >
-            {isEditing ? 'Start Playing' : 'Edit Board'}
-          </button>
         </div>
       </div>
 
