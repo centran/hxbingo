@@ -880,6 +880,23 @@ const App = () => {
             </div>
           </div>
           <div className="mt-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Upload Marker Image
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleImageUpload}
+                accept="image/*"
+                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"
+              />
+              {bingoImage && (
+                <button onClick={handleRemoveImage} className="text-sm text-red-500 hover:text-red-700">Remove</button>
+              )}
+            </div>
+          </div>
+          <div className="mt-4">
             <label className="block text-sm font-medium text-gray-700">Marker Opacity</label>
             <input
                 type="range"
@@ -908,21 +925,6 @@ const App = () => {
         {/* Image Upload and Play/Edit Mode */}
         <div className="bg-white p-6 rounded-2xl shadow-xl border border-gray-200">
           <h2 className="text-xl font-bold mb-4">Marker & Mode</h2>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Upload Marker Image
-          </label>
-          <div className="flex items-center gap-2">
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleImageUpload}
-              accept="image/*"
-              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"
-            />
-            {bingoImage && (
-              <button onClick={handleRemoveImage} className="text-sm text-red-500 hover:text-red-700">Remove</button>
-            )}
-          </div>
           {FEATURES.BATTLE_MODE_ENABLED && (
             <div className="flex items-center justify-center mt-4">
               <label htmlFor="battle-mode-toggle" className="flex items-center cursor-pointer">
