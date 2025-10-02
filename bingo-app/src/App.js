@@ -80,8 +80,20 @@ const checkWin = (squares, boardSize) => {
   return { lines, isBlackout };
 };
 
+const defaultColors = {
+  boardBg: '#ffffff',
+  squareBg: '#f3f4f6',
+  squareText: '#1f2937',
+  squareBorder: '#d1d5db',
+  buttonBg: '#4f46e5',
+  buttonText: '#ffffff',
+  markedOverlay: '#d1d5db',
+};
+
 const App = () => {
   const fileInputRef = useRef(null);
+  const isInitialMount = useRef(true);
+  const autoSaveCallback = useRef(() => {});
   // State for the board's dimensions
   const [boardSize, setBoardSize] = useState({ rows: 5, cols: 5 });
   // State for the squares, each with text and marked status
@@ -93,15 +105,7 @@ const App = () => {
   // State for a message to the user (e.g., "Image uploaded!")
   const [message, setMessage] = useState('');
   // State for custom colors
-  const [colors, setColors] = useState({
-    boardBg: '#ffffff',
-    squareBg: '#f3f4f6',
-    squareText: '#1f2937',
-    squareBorder: '#d1d5db',
-    buttonBg: '#4f46e5',
-    buttonText: '#ffffff',
-    markedOverlay: '#d1d5db',
-  });
+  const [colors, setColors] = useState(defaultColors);
   const [draftColors, setDraftColors] = useState(colors);
 
   useEffect(() => {
@@ -161,13 +165,57 @@ const App = () => {
     setBattleSquares(newBattleSquares);
   }, [boardSize.cols]);
 
-  // Effect to initialize the board when the component mounts or board size changes
-  useEffect(() => {
-    initializeBoard();
-    if (FEATURES.BATTLE_MODE_ENABLED) {
-      initializeBattleBoard();
+  const loadBoard = useCallback((encodedString) => {
+    if (!encodedString) {
+      return;
     }
-  }, [initializeBoard, initializeBattleBoard]);
+    try {
+      const decoded = fromBase64(encodedString);
+      const decompressed = pako.inflate(decoded, { to: 'string' });
+      const loadedData = JSON.parse(decompressed);
+
+      if (loadedData.boardSize && loadedData.squares && loadedData.colors) {
+        setBoardSize(loadedData.boardSize);
+        setSquares(loadedData.squares);
+        setColors(loadedData.colors);
+        setBingoImage(loadedData.bingoImage || null);
+        setOverlayOpacity(loadedData.overlayOpacity || 0.8);
+        setFontSize(loadedData.fontSize || 1);
+        setIsBattleMode(loadedData.isBattleMode || false);
+        setBattleSquares(loadedData.battleSquares || []);
+        setMessage('Board loaded successfully!');
+      } else {
+        throw new Error("Invalid save data structure.");
+      }
+    } catch (error) {
+      console.error("Failed to load board:", error);
+      setMessage('Could not load board. The code is invalid.');
+    }
+  }, []);
+
+  // Effect to initialize or load the board from a cookie
+  useEffect(() => {
+    const getCookie = (name) => {
+      const cookies = document.cookie.split(';');
+      for (let i = 0; i < cookies.length; i++) {
+          let cookie = cookies[i].trim();
+          if (cookie.startsWith(name + '=')) {
+              return cookie.substring(name.length + 1);
+          }
+      }
+      return null;
+    };
+    const savedBoardData = getCookie('bingoBoard');
+    if (savedBoardData) {
+      loadBoard(savedBoardData);
+    } else {
+      initializeBoard();
+      if (FEATURES.BATTLE_MODE_ENABLED) {
+        initializeBattleBoard();
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const winCheckResult = useMemo(() => {
     if (isEditing || !squares.length) {
@@ -210,7 +258,30 @@ const App = () => {
   const handleBoardSizeChange = (e) => {
     const { value } = e.target;
     const [rows, cols] = value.split('x').map(Number);
-    setBoardSize({ rows, cols });
+    const newSize = { rows, cols };
+    setBoardSize(newSize);
+
+    const newSquares = [];
+    for (let i = 0; i < newSize.rows * newSize.cols; i++) {
+      newSquares.push({
+        id: i + 1,
+        text: `Square ${i + 1}`,
+        isMarked: false,
+      });
+    }
+    setSquares(newSquares);
+
+    if (FEATURES.BATTLE_MODE_ENABLED) {
+        const newBattleSquares = [];
+        for (let i = 0; i < newSize.cols; i++) {
+          newBattleSquares.push({
+            id: `battle-${i}`,
+            text: `Battle ${i + 1}`,
+            isMarked: false,
+          });
+        }
+        setBattleSquares(newBattleSquares);
+    }
   };
 
   // Handler for text changes in a square's textarea
@@ -377,9 +448,10 @@ const App = () => {
   const toBase64 = (arr) => btoa(String.fromCharCode.apply(null, arr));
   const fromBase64 = (str) => new Uint8Array(atob(str).split('').map(c => c.charCodeAt(0)));
 
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback((options = {}) => {
+    const { showMessage = true } = options;
     let imageToSave = bingoImage;
-    let saveMessage = 'Board saved to text box!';
+    let saveMessage = 'Board saved to text box and cookie!';
 
     if (bingoImage && bingoImage.length > 100 * 1024) {
       imageToSave = null;
@@ -401,10 +473,20 @@ const App = () => {
       const compressed = pako.deflate(jsonString);
       const encoded = toBase64(compressed);
       setSaveLoadString(encoded);
-      setMessage(saveMessage);
+
+      // Save to cookie
+      const expiryDate = new Date();
+      expiryDate.setDate(expiryDate.getDate() + 30);
+      document.cookie = `bingoBoard=${encoded};expires=${expiryDate.toUTCString()};path=/`;
+
+      if (showMessage) {
+        setMessage(saveMessage);
+      }
     } catch (error) {
       console.error("Failed to save board:", error);
-      setMessage('Could not save board.');
+      if (showMessage) {
+        setMessage('Could not save board.');
+      }
     }
   }, [bingoImage, boardSize, squares, colors, overlayOpacity, fontSize, isBattleMode, battleSquares]);
 
@@ -413,44 +495,74 @@ const App = () => {
       setMessage('Please paste a save code first.');
       return;
     }
-    try {
-      const decoded = fromBase64(saveLoadString);
-      const decompressed = pako.inflate(decoded, { to: 'string' });
-      const loadedData = JSON.parse(decompressed);
+    loadBoard(saveLoadString);
+  }, [saveLoadString, loadBoard]);
 
-      if (loadedData.boardSize && loadedData.squares && loadedData.colors) {
-        setBoardSize(loadedData.boardSize);
-        setSquares(loadedData.squares);
-        setColors(loadedData.colors);
-        setBingoImage(loadedData.bingoImage || null);
-        setOverlayOpacity(loadedData.overlayOpacity || 0.8);
-        setFontSize(loadedData.fontSize || 1);
-        setIsBattleMode(loadedData.isBattleMode || false);
-        setBattleSquares(loadedData.battleSquares || []);
-        setMessage('Board loaded successfully!');
-      } else {
-        throw new Error("Invalid save data structure.");
-      }
-    } catch (error) {
-      console.error("Failed to load board:", error);
-      setMessage('Could not load board. The code is invalid.');
+  const handleReset = useCallback(() => {
+    const defaultSize = { rows: 5, cols: 5 };
+    setBoardSize(defaultSize);
+
+    const newSquares = [];
+    for (let i = 0; i < defaultSize.rows * defaultSize.cols; i++) {
+      newSquares.push({
+        id: i + 1,
+        text: `Square ${i + 1}`,
+        isMarked: false,
+      });
     }
-  }, [saveLoadString]);
+    setSquares(newSquares);
+
+    if (FEATURES.BATTLE_MODE_ENABLED) {
+        const newBattleSquares = [];
+        for (let i = 0; i < defaultSize.cols; i++) {
+          newBattleSquares.push({
+            id: `battle-${i}`,
+            text: `Battle ${i + 1}`,
+            isMarked: false,
+          });
+        }
+        setBattleSquares(newBattleSquares);
+    }
+
+    setColors(defaultColors);
+    setBingoImage(null);
+    setOverlayOpacity(0.8);
+    setFontSize(1);
+    setIsEditing(true);
+    setSaveLoadString('');
+    setBingoTopic('');
+    setWinningLines([]);
+    setWinningSquareIndices(new Set());
+    setShowConfetti(false);
+    setIsBlackout(false);
+    setIsBattleMode(false);
+
+    // Clear the cookie
+    document.cookie = 'bingoBoard=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/';
+
+    setMessage('Board has been reset to default settings.');
+  }, []);
 
   const debouncedGenerateBingoSquares = useMemo(
     () => debounce(generateBingoSquares, 300),
     [generateBingoSquares]
   );
 
-  const debouncedHandleSave = useMemo(
-    () => debounce(handleSave, 300),
-    [handleSave]
-  );
+  // Auto-save effect
+  useEffect(() => {
+    const debouncedAutoSave = debounce(() => handleSave({ showMessage: false }), 500);
 
-  const debouncedHandleLoad = useMemo(
-    () => debounce(handleLoad, 300),
-    [handleLoad]
-  );
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+
+    debouncedAutoSave();
+
+    return () => {
+      clearTimeout(debouncedAutoSave);
+    };
+  }, [squares, boardSize, colors, bingoImage, overlayOpacity, fontSize, isBattleMode, battleSquares, handleSave]);
 
   const getSquareById = useCallback((id) => squares.find(s => s.id === id), [squares]);
 
@@ -700,13 +812,16 @@ const App = () => {
               onChange={(e) => setSaveLoadString(e.target.value)}
             />
             <div className="flex gap-4 mt-2">
-              <button onClick={debouncedHandleSave} className="w-full py-2 px-4 rounded-lg font-bold shadow-md text-sm" style={{ backgroundColor: colors.buttonBg, color: colors.buttonText }}>
+              <button onClick={() => handleSave({ showMessage: true })} className="w-full py-2 px-4 rounded-lg font-bold shadow-md text-sm" style={{ backgroundColor: colors.buttonBg, color: colors.buttonText }}>
                 Save to Text Box
               </button>
-              <button onClick={debouncedHandleLoad} className="w-full py-2 px-4 rounded-lg font-bold shadow-md text-sm" style={{ backgroundColor: colors.buttonBg, color: colors.buttonText }}>
+              <button onClick={handleLoad} className="w-full py-2 px-4 rounded-lg font-bold shadow-md text-sm" style={{ backgroundColor: colors.buttonBg, color: colors.buttonText }}>
                 Load from Text Box
               </button>
             </div>
+            <button onClick={handleReset} className="mt-2 w-full py-2 px-4 rounded-lg font-bold shadow-md text-sm bg-red-600 hover:bg-red-700 text-white">
+              Reset Board
+            </button>
           </div>
         </div>
 
