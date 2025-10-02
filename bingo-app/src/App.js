@@ -93,7 +93,6 @@ const defaultColors = {
 const App = () => {
   const fileInputRef = useRef(null);
   const isInitialMount = useRef(true);
-  const autoSaveCallback = useRef(() => {});
   // State for the board's dimensions
   const [boardSize, setBoardSize] = useState({ rows: 5, cols: 5 });
   // State for the squares, each with text and marked status
