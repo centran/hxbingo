@@ -21,6 +21,7 @@ import { SortableSquare } from './SortableSquare';
 import { Square } from './Square'; // We'll create a simple static square component
 import VideoOverlay from './VideoOverlay';
 import Confetti from 'react-confetti';
+import CustomizationControls from './CustomizationControls';
 
 // Debounce function to limit the rate of function execution
 const debounce = (func, delay) => {
@@ -105,11 +106,6 @@ const App = () => {
   const [message, setMessage] = useState('');
   // State for custom colors
   const [colors, setColors] = useState(defaultColors);
-  const [draftColors, setDraftColors] = useState(colors);
-
-  useEffect(() => {
-    setDraftColors(colors);
-  }, [colors]);
 
   // State for the overlay opacity
   const [overlayOpacity, setOverlayOpacity] = useState(0.8);
@@ -342,24 +338,6 @@ const App = () => {
       )
     );
   }, [isEditing]);
-
-  const debouncedSetColors = useMemo(
-    () => debounce((newColors) => {
-      setColors(newColors);
-    }, 200),
-    [] // setColors is stable and doesn't need to be a dependency
-  );
-
-  // Handler for changing colors
-  const handleColorChange = (e) => {
-    const { name, value } = e.target;
-    const newDraftColors = {
-      ...draftColors,
-      [name]: value,
-    };
-    setDraftColors(newDraftColors);
-    debouncedSetColors(newDraftColors);
-  };
 
   // Function to generate BINGO square text using the Gemini API
   const generateBingoSquares = useCallback(async () => {
@@ -865,82 +843,18 @@ const App = () => {
         </div>
 
         {/* Customization Controls */}
-        <div className="bg-white p-6 rounded-2xl shadow-xl border border-gray-200">
-          <h2 className="text-xl font-bold mb-4">Customization</h2>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Board BG</label>
-              <input type="color" name="boardBg" value={draftColors.boardBg} onChange={handleColorChange} className="w-full h-8" />
-              <button onClick={() => setColors(prev => ({ ...prev, boardBg: 'transparent' }))} className="text-xs text-gray-500 hover:text-gray-700 mt-1">Set Transparent</button>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Square BG</label>
-              <input type="color" name="squareBg" value={draftColors.squareBg} onChange={handleColorChange} className="w-full h-8" />
-              <button onClick={() => setColors(prev => ({ ...prev, squareBg: 'transparent' }))} className="text-xs text-gray-500 hover:text-gray-700 mt-1">Set Transparent</button>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Text Color</label>
-              <input type="color" name="squareText" value={draftColors.squareText} onChange={handleColorChange} className="w-full h-8" />
-              <button onClick={() => setColors(prev => ({ ...prev, squareText: 'transparent' }))} className="text-xs text-gray-500 hover:text-gray-700 mt-1">Set Transparent</button>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Border Color</label>
-              <input type="color" name="squareBorder" value={draftColors.squareBorder} onChange={handleColorChange} className="w-full h-8" />
-              <button onClick={() => setColors(prev => ({ ...prev, squareBorder: 'transparent' }))} className="text-xs text-gray-500 hover:text-gray-700 mt-1">Set Transparent</button>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Button BG</label>
-              <input type="color" name="buttonBg" value={draftColors.buttonBg} onChange={handleColorChange} className="w-full h-8" />
-              <button onClick={() => setColors(prev => ({ ...prev, buttonBg: 'transparent' }))} className="text-xs text-gray-500 hover:text-gray-700 mt-1">Set Transparent</button>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Marker Overlay</label>
-              <input type="color" name="markedOverlay" value={draftColors.markedOverlay} onChange={handleColorChange} className="w-full h-8" />
-              <button onClick={() => setColors(prev => ({ ...prev, markedOverlay: 'transparent' }))} className="text-xs text-gray-500 hover:text-gray-700 mt-1">Set Transparent</button>
-            </div>
-          </div>
-          <div className="mt-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Upload Marker Image
-            </label>
-            <div className="flex items-center gap-2">
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleImageUpload}
-                accept="image/*"
-                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"
-              />
-              {bingoImage && (
-                <button onClick={handleRemoveImage} className="text-sm text-red-500 hover:text-red-700">Remove</button>
-              )}
-            </div>
-          </div>
-          <div className="mt-4">
-            <label className="block text-sm font-medium text-gray-700">Marker Opacity</label>
-            <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.05"
-                value={overlayOpacity}
-                onChange={(e) => setOverlayOpacity(parseFloat(e.target.value))}
-                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-            />
-          </div>
-          <div className="mt-4">
-            <label className="block text-sm font-medium text-gray-700">Font Size</label>
-            <input
-                type="range"
-                min="0.5"
-                max="2"
-                step="0.1"
-                value={fontSize}
-                onChange={(e) => setFontSize(parseFloat(e.target.value))}
-                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-            />
-          </div>
-        </div>
+        <CustomizationControls
+          colors={colors}
+          setColors={setColors}
+          bingoImage={bingoImage}
+          handleImageUpload={handleImageUpload}
+          handleRemoveImage={handleRemoveImage}
+          fileInputRef={fileInputRef}
+          overlayOpacity={overlayOpacity}
+          setOverlayOpacity={setOverlayOpacity}
+          fontSize={fontSize}
+          setFontSize={setFontSize}
+        />
       </div>
 
       {/* Gemini API Feature */}
