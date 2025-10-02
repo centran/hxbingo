@@ -92,6 +92,8 @@ const defaultColors = {
 
 const App = () => {
   const fileInputRef = useRef(null);
+  const isInitialMount = useRef(true);
+  const autoSaveCallback = useRef(() => {});
   // State for the board's dimensions
   const [boardSize, setBoardSize] = useState({ rows: 5, cols: 5 });
   // State for the squares, each with text and marked status
@@ -446,7 +448,8 @@ const App = () => {
   const toBase64 = (arr) => btoa(String.fromCharCode.apply(null, arr));
   const fromBase64 = (str) => new Uint8Array(atob(str).split('').map(c => c.charCodeAt(0)));
 
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback((options = {}) => {
+    const { showMessage = true } = options;
     let imageToSave = bingoImage;
     let saveMessage = 'Board saved to text box and cookie!';
 
@@ -476,10 +479,14 @@ const App = () => {
       expiryDate.setDate(expiryDate.getDate() + 30);
       document.cookie = `bingoBoard=${encoded};expires=${expiryDate.toUTCString()};path=/`;
 
-      setMessage(saveMessage);
+      if (showMessage) {
+        setMessage(saveMessage);
+      }
     } catch (error) {
       console.error("Failed to save board:", error);
-      setMessage('Could not save board.');
+      if (showMessage) {
+        setMessage('Could not save board.');
+      }
     }
   }, [bingoImage, boardSize, squares, colors, overlayOpacity, fontSize, isBattleMode, battleSquares]);
 
@@ -541,15 +548,21 @@ const App = () => {
     [generateBingoSquares]
   );
 
-  const debouncedHandleSave = useMemo(
-    () => debounce(handleSave, 300),
-    [handleSave]
-  );
+  // Auto-save effect
+  useEffect(() => {
+    const debouncedAutoSave = debounce(() => handleSave({ showMessage: false }), 500);
 
-  const debouncedHandleLoad = useMemo(
-    () => debounce(handleLoad, 300),
-    [handleLoad]
-  );
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+
+    debouncedAutoSave();
+
+    return () => {
+      clearTimeout(debouncedAutoSave);
+    };
+  }, [squares, boardSize, colors, bingoImage, overlayOpacity, fontSize, isBattleMode, battleSquares, handleSave]);
 
   const getSquareById = useCallback((id) => squares.find(s => s.id === id), [squares]);
 
@@ -799,10 +812,10 @@ const App = () => {
               onChange={(e) => setSaveLoadString(e.target.value)}
             />
             <div className="flex gap-4 mt-2">
-              <button onClick={debouncedHandleSave} className="w-full py-2 px-4 rounded-lg font-bold shadow-md text-sm" style={{ backgroundColor: colors.buttonBg, color: colors.buttonText }}>
+              <button onClick={() => handleSave({ showMessage: true })} className="w-full py-2 px-4 rounded-lg font-bold shadow-md text-sm" style={{ backgroundColor: colors.buttonBg, color: colors.buttonText }}>
                 Save to Text Box
               </button>
-              <button onClick={debouncedHandleLoad} className="w-full py-2 px-4 rounded-lg font-bold shadow-md text-sm" style={{ backgroundColor: colors.buttonBg, color: colors.buttonText }}>
+              <button onClick={handleLoad} className="w-full py-2 px-4 rounded-lg font-bold shadow-md text-sm" style={{ backgroundColor: colors.buttonBg, color: colors.buttonText }}>
                 Load from Text Box
               </button>
             </div>
