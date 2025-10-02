@@ -799,6 +799,27 @@ const App = () => {
         {/* Board Controls */}
         <div className="bg-white p-6 rounded-2xl shadow-xl border border-gray-200">
           <h2 className="text-xl font-bold mb-4">Board Settings</h2>
+          <button
+            onClick={() => setIsEditing(!isEditing)}
+            style={{ backgroundColor: colors.buttonBg, color: colors.buttonText }}
+            className="w-full py-2 px-4 rounded-lg font-bold shadow-md hover:scale-105 transition-all duration-200 mb-4"
+          >
+            {isEditing ? 'Start Playing' : 'Edit Board'}
+          </button>
+          {FEATURES.BATTLE_MODE_ENABLED && (
+            <div className="flex items-center justify-center mb-4">
+              <label htmlFor="battle-mode-toggle" className="flex items-center cursor-pointer">
+                <div className="relative">
+                  <input type="checkbox" id="battle-mode-toggle" className="sr-only" checked={isBattleMode} onChange={() => setIsBattleMode(!isBattleMode)} />
+                  <div className="block bg-gray-700 w-14 h-8 rounded-full"></div>
+                  <div className="dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition"></div>
+                </div>
+                <div className="ml-3 text-gray-700 font-medium">
+                  Battle Mode
+                </div>
+              </label>
+            </div>
+          )}
           <div>
             <label className="block text-sm font-medium text-gray-700">Board Size</label>
             <select
@@ -920,32 +941,6 @@ const App = () => {
                 className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
             />
           </div>
-        </div>
-
-        {/* Image Upload and Play/Edit Mode */}
-        <div className="bg-white p-6 rounded-2xl shadow-xl border border-gray-200">
-          <h2 className="text-xl font-bold mb-4">Marker & Mode</h2>
-          {FEATURES.BATTLE_MODE_ENABLED && (
-            <div className="flex items-center justify-center mt-4">
-              <label htmlFor="battle-mode-toggle" className="flex items-center cursor-pointer">
-                <div className="relative">
-                  <input type="checkbox" id="battle-mode-toggle" className="sr-only" checked={isBattleMode} onChange={() => setIsBattleMode(!isBattleMode)} />
-                  <div className="block bg-gray-700 w-14 h-8 rounded-full"></div>
-                  <div className="dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition"></div>
-                </div>
-                <div className="ml-3 text-gray-700 font-medium">
-                  Battle Mode
-                </div>
-              </label>
-            </div>
-          )}
-          <button
-            onClick={() => setIsEditing(!isEditing)}
-            style={{ backgroundColor: colors.buttonBg, color: colors.buttonText }}
-            className="mt-4 w-full py-2 px-4 rounded-lg font-bold shadow-md hover:scale-105 transition-all duration-200"
-          >
-            {isEditing ? 'Start Playing' : 'Edit Board'}
-          </button>
         </div>
       </div>
 
