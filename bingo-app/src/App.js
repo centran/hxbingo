@@ -448,21 +448,12 @@ const App = () => {
   const toBase64 = (arr) => btoa(String.fromCharCode.apply(null, arr));
   const fromBase64 = (str) => new Uint8Array(atob(str).split('').map(c => c.charCodeAt(0)));
 
-  const handleSave = useCallback((options = {}) => {
-    const { showMessage = true } = options;
-    let imageToSave = bingoImage;
-    let saveMessage = 'Board saved to text box and cookie!';
-
-    if (bingoImage && bingoImage.length > 100 * 1024) {
-      imageToSave = null;
-      saveMessage = 'Board saved, but marker image was too large and was not included.';
-    }
-
+  const saveToCookie = useCallback(() => {
     const saveData = {
       boardSize,
       squares,
       colors,
-      bingoImage: imageToSave,
+      bingoImage: null, // Always exclude the image from the cookie
       overlayOpacity,
       fontSize,
       isBattleMode,
@@ -472,23 +463,51 @@ const App = () => {
       const jsonString = JSON.stringify(saveData);
       const compressed = pako.deflate(jsonString);
       const encoded = toBase64(compressed);
-      setSaveLoadString(encoded);
-
-      // Save to cookie
       const expiryDate = new Date();
       expiryDate.setDate(expiryDate.getDate() + 30);
       document.cookie = `bingoBoard=${encoded};expires=${expiryDate.toUTCString()};path=/`;
+    } catch (error) {
+      console.error("Failed to save board to cookie:", error);
+    }
+  }, [boardSize, squares, colors, overlayOpacity, fontSize, isBattleMode, battleSquares]);
+
+  const handleSave = useCallback((options = {}) => {
+    const { showMessage = true } = options;
+    let saveMessage = 'Board saved to text box and cookie!';
+
+    const saveDataForTextbox = {
+      boardSize,
+      squares,
+      colors,
+      bingoImage,
+      overlayOpacity,
+      fontSize,
+      isBattleMode,
+      battleSquares,
+    };
+
+    try {
+      const jsonString = JSON.stringify(saveDataForTextbox);
+      const compressed = pako.deflate(jsonString);
+      const encoded = toBase64(compressed);
+      setSaveLoadString(encoded);
+
+      saveToCookie();
 
       if (showMessage) {
+        if (bingoImage) {
+            saveMessage = 'Board saved! Marker image is in the text box but not in the auto-saved cookie.';
+        }
         setMessage(saveMessage);
       }
-    } catch (error) {
+    } catch (error)
+     {
       console.error("Failed to save board:", error);
       if (showMessage) {
         setMessage('Could not save board.');
       }
     }
-  }, [bingoImage, boardSize, squares, colors, overlayOpacity, fontSize, isBattleMode, battleSquares]);
+  }, [bingoImage, boardSize, squares, colors, overlayOpacity, fontSize, isBattleMode, battleSquares, saveToCookie]);
 
   const handleLoad = useCallback(() => {
     if (!saveLoadString) {
@@ -550,19 +569,19 @@ const App = () => {
 
   // Auto-save effect
   useEffect(() => {
-    const debouncedAutoSave = debounce(() => handleSave({ showMessage: false }), 500);
+    const debouncedSaveToCookie = debounce(saveToCookie, 500);
 
     if (isInitialMount.current) {
       isInitialMount.current = false;
       return;
     }
 
-    debouncedAutoSave();
+    debouncedSaveToCookie();
 
     return () => {
-      clearTimeout(debouncedAutoSave);
+      clearTimeout(debouncedSaveToCookie);
     };
-  }, [squares, boardSize, colors, bingoImage, overlayOpacity, fontSize, isBattleMode, battleSquares, handleSave]);
+  }, [squares, boardSize, colors, overlayOpacity, fontSize, isBattleMode, battleSquares, saveToCookie]);
 
   const getSquareById = useCallback((id) => squares.find(s => s.id === id), [squares]);
 
