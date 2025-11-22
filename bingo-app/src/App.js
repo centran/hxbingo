@@ -81,6 +81,18 @@ const checkWin = (squares, boardSize) => {
   return { lines, isBlackout };
 };
 
+const generateEmptyBoard = (rows, cols) => {
+  const newSquares = [];
+  for (let i = 0; i < rows * cols; i++) {
+    newSquares.push({
+      id: i + 1,
+      text: '',
+      isMarked: false,
+    });
+  }
+  return newSquares;
+};
+
 const defaultColors = {
   boardBg: '#ffffff',
   squareBg: '#f3f4f6',
@@ -137,15 +149,7 @@ const App = () => {
 
   // Function to create a new board with default text
   const initializeBoard = useCallback(() => {
-    const newSquares = [];
-    for (let i = 0; i < boardSize.rows * boardSize.cols; i++) {
-      newSquares.push({
-        id: i + 1,
-        text: `Square ${i + 1}`,
-        isMarked: false,
-      });
-    }
-    setSquares(newSquares);
+    setSquares(generateEmptyBoard(boardSize.rows, boardSize.cols));
   }, [boardSize.rows, boardSize.cols]);
 
   const initializeBattleBoard = useCallback(() => {
@@ -255,16 +259,7 @@ const App = () => {
     const [rows, cols] = value.split('x').map(Number);
     const newSize = { rows, cols };
     setBoardSize(newSize);
-
-    const newSquares = [];
-    for (let i = 0; i < newSize.rows * newSize.cols; i++) {
-      newSquares.push({
-        id: i + 1,
-        text: `Square ${i + 1}`,
-        isMarked: false,
-      });
-    }
-    setSquares(newSquares);
+    setSquares(generateEmptyBoard(newSize.rows, newSize.cols));
 
     if (FEATURES.BATTLE_MODE_ENABLED) {
         const newBattleSquares = [];
@@ -497,16 +492,7 @@ const App = () => {
   const handleReset = useCallback(() => {
     const defaultSize = { rows: 5, cols: 5 };
     setBoardSize(defaultSize);
-
-    const newSquares = [];
-    for (let i = 0; i < defaultSize.rows * defaultSize.cols; i++) {
-      newSquares.push({
-        id: i + 1,
-        text: `Square ${i + 1}`,
-        isMarked: false,
-      });
-    }
-    setSquares(newSquares);
+    setSquares(generateEmptyBoard(defaultSize.rows, defaultSize.cols));
 
     if (FEATURES.BATTLE_MODE_ENABLED) {
         const newBattleSquares = [];
