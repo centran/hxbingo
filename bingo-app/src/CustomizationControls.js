@@ -128,12 +128,16 @@ const CustomizationControls = ({
             <img src={masha} alt="Masha" className="h-8 w-8 object-contain" />
           </button>
           <div className="flex-grow">
+            <label htmlFor="image-upload" className="cursor-pointer bg-violet-50 text-violet-700 hover:bg-violet-100 font-semibold text-sm py-2 px-4 rounded-full">
+              Import Image
+            </label>
             <input
+              id="image-upload"
               type="file"
               ref={fileInputRef}
               onChange={handleImageUpload}
               accept="image/*"
-              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"
+              className="hidden"
             />
           </div>
           {bingoImage && (
