@@ -31,7 +31,6 @@ export const SortableSquare = React.memo(({ id, square, index, squareBg, squareB
             backgroundImage: square.isMarked && bingoImage ? `url(${bingoImage})` : 'none',
             backgroundSize: 'cover',
             backgroundPosition: 'center',
-            backgroundBlendMode: 'overlay',
             width: '100%',
             aspectRatio: '1 / 1',
         }}
