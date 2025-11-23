@@ -108,7 +108,6 @@ export const Square = React.memo(({ square, index, squareBg, squareBorder, squar
       backgroundImage: square.isMarked && bingoImage && !isBattleSquare ? `url(${bingoImage})` : 'none',
       backgroundSize: 'cover',
       backgroundPosition: 'center',
-      backgroundBlendMode: 'overlay',
       width: '100%',
       aspectRatio: '1 / 1',
   };
