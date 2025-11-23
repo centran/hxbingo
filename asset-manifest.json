@@ -1,15 +1,18 @@
 {
   "files": {
     "main.css": "/hxbingo/static/css/main.b2e32326.css",
-    "main.js": "/hxbingo/static/js/main.2066d109.js",
+    "main.js": "/hxbingo/static/js/main.7a800433.js",
     "static/js/453.25f67167.chunk.js": "/hxbingo/static/js/453.25f67167.chunk.js",
+    "static/media/masha-anime.png": "/hxbingo/static/media/masha-anime.de26bb2d56d92e9fc74c.png",
+    "static/media/splat.png": "/hxbingo/static/media/splat.ba16db6c69c573867171.png",
+    "static/media/hx.png": "/hxbingo/static/media/hx.34316e9aced1f110a11c.png",
     "index.html": "/hxbingo/index.html",
     "main.b2e32326.css.map": "/hxbingo/static/css/main.b2e32326.css.map",
-    "main.2066d109.js.map": "/hxbingo/static/js/main.2066d109.js.map",
+    "main.7a800433.js.map": "/hxbingo/static/js/main.7a800433.js.map",
     "453.25f67167.chunk.js.map": "/hxbingo/static/js/453.25f67167.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.b2e32326.css",
-    "static/js/main.2066d109.js"
+    "static/js/main.7a800433.js"
   ]
 }
