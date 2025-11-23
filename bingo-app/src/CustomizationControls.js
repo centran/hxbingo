@@ -1,4 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import hx from './hx.png';
+import splat from './splat.png';
+import masha from './masha-anime.png';
 
 // Debounce function to limit the rate of function execution
 const debounce = (func, delay) => {
@@ -76,7 +79,7 @@ const CustomizationControls = ({
   };
 
   return (
-    <div className="bg-white p-6 rounded-2xl shadow-xl border border-gray-200">
+    <div data-testid="customization-controls" className="bg-white p-6 rounded-2xl shadow-xl border border-gray-200">
       <h2 className="text-xl font-bold mb-4">Customization</h2>
       <div className="grid grid-cols-2 gap-4">
         <div>
@@ -112,16 +115,31 @@ const CustomizationControls = ({
       </div>
       <div className="mt-4">
         <label className="block text-sm font-medium text-gray-700 mb-2">
-          Upload Marker Image
+          Marker Image
         </label>
         <div className="flex items-center gap-2">
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleImageUpload}
-            accept="image/*"
-            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"
-          />
+          <button onClick={() => handleImageUpload(hx)} className="p-1 border rounded hover:border-violet-700">
+            <img src={hx} alt="Hx" className="h-8 w-8 object-contain" />
+          </button>
+          <button onClick={() => handleImageUpload(splat)} className="p-1 border rounded hover:border-violet-700">
+            <img src={splat} alt="Splat" className="h-8 w-8 object-contain" />
+          </button>
+          <button onClick={() => handleImageUpload(masha)} className="p-1 border rounded hover:border-violet-700">
+            <img src={masha} alt="Masha" className="h-8 w-8 object-contain" />
+          </button>
+          <div className="flex-grow">
+            <label htmlFor="image-upload" className="cursor-pointer bg-violet-50 text-violet-700 hover:bg-violet-100 font-semibold text-sm py-2 px-4 rounded-full">
+              Import Image
+            </label>
+            <input
+              id="image-upload"
+              type="file"
+              ref={fileInputRef}
+              onChange={handleImageUpload}
+              accept="image/*"
+              className="hidden"
+            />
+          </div>
           {bingoImage && (
             <button onClick={handleRemoveImage} className="text-sm text-red-500 hover:text-red-700">Remove</button>
           )}

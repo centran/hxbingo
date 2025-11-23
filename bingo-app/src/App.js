@@ -297,15 +297,26 @@ const App = () => {
   };
 
   // Handler for the image file upload
-  const handleImageUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setBingoImage(reader.result);
-        setMessage('Marker image uploaded!');
-      };
-      reader.readAsDataURL(file);
+  const handleImageUpload = (eventOrUrl) => {
+    let fileOrUrl;
+    if (eventOrUrl && eventOrUrl.target && eventOrUrl.target.files) {
+      fileOrUrl = eventOrUrl.target.files[0];
+    } else {
+      fileOrUrl = eventOrUrl;
+    }
+
+    if (fileOrUrl) {
+      if (typeof fileOrUrl === 'string') {
+        setBingoImage(fileOrUrl);
+        setMessage('Marker image selected!');
+      } else {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setBingoImage(reader.result);
+          setMessage('Marker image uploaded!');
+        };
+        reader.readAsDataURL(fileOrUrl);
+      }
     }
   };
 
