@@ -136,6 +136,7 @@ const App = () => {
   const [showConfetti, setShowConfetti] = useState(false);
   const [isBlackout, setIsBlackout] = useState(false);
   const [isBattleMode, setIsBattleMode] = useState(false);
+  const [isBattleModeLock, setIsBattleModeLock] = useState(false);
   const [battleSquares, setBattleSquares] = useState([]);
   const [isSpinning, setIsSpinning] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(null);
@@ -559,6 +560,21 @@ const App = () => {
 
   const getSquareById = useCallback((id) => squares.find(s => s.id === id), [squares]);
 
+  const getAvailableMarkedSquares = useCallback(() => {
+    let markedSquaresIndices = squares.reduce((acc, square, index) => {
+      if (square.isMarked) {
+        acc.push(index);
+      }
+      return acc;
+    }, []);
+
+    if (isBattleModeLock) {
+      return markedSquaresIndices.filter(index => !winningSquareIndices.has(index));
+    }
+
+    return markedSquaresIndices;
+  }, [squares, isBattleModeLock, winningSquareIndices]);
+
   const handleBattleTextChange = useCallback((e) => {
     const newText = e.target.value;
     const index = parseInt(e.target.dataset.index, 10);
@@ -572,38 +588,33 @@ const App = () => {
   const handleBattleSquareClick = useCallback(() => {
     if (isEditing || isSpinning) return;
 
-    const markedSquaresIndices = squares.reduce((acc, square, index) => {
-      if (square.isMarked) {
-        acc.push(index);
-      }
-      return acc;
-    }, []);
+    const availableSquares = getAvailableMarkedSquares();
 
-    if (markedSquaresIndices.length === 0) {
-      setMessage('No marked squares to remove!');
+    if (availableSquares.length === 0) {
+      setMessage('No available squares to remove!');
       return;
     }
 
     setIsSpinning(true);
-  }, [isEditing, isSpinning, squares]);
+  }, [isEditing, isSpinning, getAvailableMarkedSquares]);
 
   useEffect(() => {
     if (!isSpinning) return;
 
-    const markedSquaresIndices = squares.reduce((acc, square, index) => {
-      if (square.isMarked) {
-        acc.push(index);
-      }
-      return acc;
-    }, []);
+    const availableSquares = getAvailableMarkedSquares();
+
+    if (availableSquares.length === 0) {
+      setIsSpinning(false);
+      return;
+    }
 
     let spinCount = 0;
     const maxSpins = 10 + Math.floor(Math.random() * 5); // Vary the number of spins
     let currentDelay = 100;
 
     const spin = () => {
-      const randomIndex = Math.floor(Math.random() * markedSquaresIndices.length);
-      const highlighted = markedSquaresIndices[randomIndex];
+      const randomIndex = Math.floor(Math.random() * availableSquares.length);
+      const highlighted = availableSquares[randomIndex];
       setHighlightedIndex(highlighted);
 
       spinCount++;
@@ -629,7 +640,7 @@ const App = () => {
     };
 
     spin();
-  }, [isSpinning, squares, toggleMarked]);
+  }, [isSpinning, toggleMarked, getAvailableMarkedSquares]);
 
   // Effect to automatically clear messages after a delay
   useEffect(() => {
@@ -790,6 +801,20 @@ const App = () => {
                 </div>
                 <div className="ml-3 text-gray-700 font-medium">
                   Battle Mode
+                </div>
+              </label>
+            </div>
+          )}
+          {FEATURES.BATTLE_MODE_ENABLED && isBattleMode && (
+            <div className="flex items-center justify-center mb-4">
+              <label htmlFor="battle-mode-lock-toggle" className="flex items-center cursor-pointer">
+                <div className="relative">
+                  <input type="checkbox" id="battle-mode-lock-toggle" className="sr-only" checked={isBattleModeLock} onChange={() => setIsBattleModeLock(!isBattleModeLock)} />
+                  <div className="block bg-gray-700 w-14 h-8 rounded-full"></div>
+                  <div className="dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition"></div>
+                </div>
+                <div className="ml-3 text-gray-700 font-medium">
+                  Lock Winning Squares
                 </div>
               </label>
             </div>
