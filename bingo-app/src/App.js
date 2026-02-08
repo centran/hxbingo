@@ -14,9 +14,10 @@ import {
   sortableKeyboardCoordinates,
   rectSortingStrategy,
 } from '@dnd-kit/sortable';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import pako from 'pako';
 
-import { FEATURES } from './config';
+import { FEATURES, API_CONFIG } from './config';
 import { SortableSquare } from './SortableSquare';
 import { Square } from './Square'; // We'll create a simple static square component
 import VideoOverlay from './VideoOverlay';
@@ -133,7 +134,7 @@ const App = () => {
   // State for the user-provided topic for AI-generated squares
   const [bingoTopic, setBingoTopic] = useState('');
   // State for the user's API key
-  const [apiKey, setApiKey] = useState('');
+  const [apiKey, setApiKey] = useState(API_CONFIG.GEMINI_API_KEY);
   // State to track if the AI is generating content
   const [isLoading, setIsLoading] = useState(false);
   const [activeId, setActiveId] = useState(null);
@@ -512,56 +513,38 @@ const App = () => {
     setIsLoading(true);
     setMessage('Generating squares...');
 
-    const prompt = `Generate a list of exactly ${boardSize.rows * boardSize.cols} items related to '${bingoTopic}'. The items should be single-word or short phrases, suitable for a BINGO card. The output should be a JSON array of strings. Do not include any text before or after the JSON.`;
-
-    let chatHistory = [];
-    chatHistory.push({ role: "user", parts: [{ text: prompt }] });
-
-    const payload = {
-        contents: chatHistory,
-        generationConfig: {
-            responseMimeType: "application/json",
-            responseSchema: {
-                type: "ARRAY",
-                items: {
-                    type: "STRING"
-                }
-            }
-        }
-    };
-
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
-
     try {
-        const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
+      const genAI = new GoogleGenerativeAI(apiKey);
+      const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
-        if (!response.ok) {
-            throw new Error(`API call failed with status: ${response.status}`);
-        }
+      const prompt = `Generate a list of exactly ${boardSize.rows * boardSize.cols} items related to '${bingoTopic}'. The items should be single-word or short phrases, suitable for a BINGO card. Return ONLY a valid JSON array of strings with no additional text. Example format: ["item1", "item2", "item3"]`;
 
-        const result = await response.json();
-        const jsonText = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+      const result = await model.generateContent(prompt);
+      const response = result.response;
+      const text = response.text();
 
-        if (jsonText) {
-            const generatedItems = JSON.parse(jsonText);
-            const newSquares = generatedItems.slice(0, boardSize.rows * boardSize.cols).map((item, index) => ({
-                id: index + 1,
-                text: item,
-                isMarked: false,
-            }));
-            setSquares(newSquares);
-            setMessage('Bingo squares generated!');
-        } else {
-            setMessage('Could not generate squares. Please try again.');
-        }
+      // Parse the response to extract the JSON array
+      const jsonMatch = text.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        const generatedItems = JSON.parse(jsonMatch[0]);
+        const newSquares = generatedItems.slice(0, boardSize.rows * boardSize.cols).map((item, index) => ({
+          id: index + 1,
+          text: item,
+          isMarked: false,
+        }));
+        setSquares(newSquares);
+        setMessage('Bingo squares generated!');
+      } else {
+        setMessage('Could not parse generated content. Please try again.');
+      }
 
     } catch (error) {
         console.error('Error generating bingo squares:', error);
-        setMessage('Error generating squares. Check the console for details.');
+        if (error.message && error.message.includes('API key')) {
+          setMessage('Invalid API key. Please check your Gemini API key.');
+        } else {
+          setMessage('Error generating squares. Check the console for details.');
+        }
     } finally {
         setIsLoading(false);
     }
