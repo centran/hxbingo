@@ -22,6 +22,7 @@ import { Square } from './Square'; // We'll create a simple static square compon
 import VideoOverlay from './VideoOverlay';
 import Confetti from 'react-confetti';
 import CustomizationControls from './CustomizationControls';
+import { compressAndResizeImage, estimateDataUrlSize, formatBytes } from './imageUtils';
 
 // Debounce function to limit the rate of function execution
 const debounce = (func, delay) => {
@@ -88,6 +89,7 @@ const generateEmptyBoard = (rows, cols) => {
       id: i + 1,
       text: '',
       isMarked: false,
+      image: null,
     });
   }
   return newSquares;
@@ -106,6 +108,11 @@ const defaultColors = {
 const App = () => {
   const fileInputRef = useRef(null);
   const isInitialMount = useRef(true);
+  const boardRef = useRef(null);
+  const [movingIndex, setMovingIndex] = useState(null);
+  const [movingPos, setMovingPos] = useState({ x: 0, y: 0 });
+  const [movingCellSize, setMovingCellSize] = useState(0);
+  const suppressClickRef = useRef(false);
   // State for the board's dimensions
   const [boardSize, setBoardSize] = useState({ rows: 5, cols: 5 });
   // State for the squares, each with text and marked status
@@ -121,7 +128,8 @@ const App = () => {
 
   // State for the overlay opacity
   const [overlayOpacity, setOverlayOpacity] = useState(0.8);
-  const [fontSize, setFontSize] = useState(1);
+  const [fontSize, setFontSize] = useState(1.8);
+  // Default font size: two steps down from max (max 2, step 0.1 => 2 - 0.2 = 1.8)
   // State for the user-provided topic for AI-generated squares
   const [bingoTopic, setBingoTopic] = useState('');
   // State for the user's API key
@@ -174,13 +182,13 @@ const App = () => {
       const decompressed = pako.inflate(decoded, { to: 'string' });
       const loadedData = JSON.parse(decompressed);
 
-      if (loadedData.boardSize && loadedData.squares && loadedData.colors) {
+        if (loadedData.boardSize && loadedData.squares && loadedData.colors) {
         setBoardSize(loadedData.boardSize);
         setSquares(loadedData.squares);
         setColors(loadedData.colors);
         setBingoImage(loadedData.bingoImage || null);
         setOverlayOpacity(loadedData.overlayOpacity || 0.8);
-        setFontSize(loadedData.fontSize || 1);
+        setFontSize(loadedData.fontSize || 1.8);
         setIsBattleMode(loadedData.isBattleMode || false);
         setBattleSquares(loadedData.battleSquares || []);
         setMessage('Board loaded successfully!');
@@ -346,6 +354,153 @@ const App = () => {
     );
   }, [isEditing]);
 
+  // Handler for moving a square in a direction
+  const handleMoveSquare = useCallback((index, direction) => {
+    if (!isEditing) return;
+
+    // If direction is 'start', enter free-move mode for this square
+    if (direction === 'start') {
+      const boardEl = boardRef.current;
+      if (!boardEl) return;
+      const rect = boardEl.getBoundingClientRect();
+      const cols = boardSize.cols;
+      const cellSize = rect.width / cols;
+      const row = Math.floor(index / cols);
+      const col = index % cols;
+      const centerX = rect.left + col * cellSize + cellSize / 2;
+      const centerY = rect.top + row * cellSize + cellSize / 2;
+      setMovingCellSize(cellSize);
+      setMovingPos({ x: centerX, y: centerY });
+      setMovingIndex(index);
+      // suppress the click that initiated move so it doesn't immediately place
+      suppressClickRef.current = true;
+      setMessage('Click to place the square, or press Esc to cancel.');
+      return;
+    }
+
+    // fallback: support directional moves (kept for compatibility)
+    setSquares(currentSquares => {
+      const newSquares = [...currentSquares];
+      const { rows, cols } = boardSize;
+      let newIndex = index;
+
+      // Calculate new index based on direction
+      switch (direction) {
+        case 'up':
+          if (index >= cols) {
+            newIndex = index - cols;
+          }
+          break;
+        case 'down':
+          if (index < rows * cols - cols) {
+            newIndex = index + cols;
+          }
+          break;
+        case 'left':
+          if (index % cols !== 0) {
+            newIndex = index - 1;
+          }
+          break;
+        case 'right':
+          if ((index + 1) % cols !== 0) {
+            newIndex = index + 1;
+          }
+          break;
+        default:
+          return currentSquares;
+      }
+
+      // Swap squares
+      if (newIndex !== index) {
+        [newSquares[index], newSquares[newIndex]] = [newSquares[newIndex], newSquares[index]];
+        setMessage(`Square moved ${direction}!`);
+      }
+
+      return newSquares;
+    });
+  }, [isEditing, boardSize, setMessage]);
+
+  // Free-move mode: track mouse and handle drop / cancel
+  useEffect(() => {
+    if (movingIndex === null) return;
+
+    const handleMouseMove = (e) => {
+      setMovingPos({ x: e.clientX, y: e.clientY });
+    };
+
+    const handleClick = (e) => {
+      // ignore the first click immediately after starting move
+      if (suppressClickRef.current) {
+        suppressClickRef.current = false;
+        return;
+      }
+      const boardEl = boardRef.current;
+      if (!boardEl) {
+        setMovingIndex(null);
+        return;
+      }
+      const rect = boardEl.getBoundingClientRect();
+      const cols = boardSize.cols;
+      const rows = boardSize.rows;
+      const cellSize = rect.width / cols;
+      const relX = e.clientX - rect.left;
+      const relY = e.clientY - rect.top;
+      let col = Math.floor(relX / cellSize);
+      let row = Math.floor(relY / cellSize);
+      if (col < 0) col = 0;
+      if (col >= cols) col = cols - 1;
+      if (row < 0) row = 0;
+      if (row >= rows) row = rows - 1;
+      const dropIndex = row * cols + col;
+
+      setSquares(current => {
+        const arr = [...current];
+        const item = arr.splice(movingIndex, 1)[0];
+        arr.splice(dropIndex, 0, item);
+        return arr;
+      });
+
+      setMessage('Square moved!');
+      setMovingIndex(null);
+    };
+
+    const handleKey = (e) => {
+      if (e.key === 'Escape') {
+        setMovingIndex(null);
+        setMessage('Move canceled');
+      }
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('click', handleClick);
+    document.addEventListener('keydown', handleKey);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('click', handleClick);
+      document.removeEventListener('keydown', handleKey);
+    };
+  }, [movingIndex, boardSize]);
+
+  // Handler for uploading an image to a specific square
+  const handleSquareImageUpload = useCallback(async (file, index) => {
+    try {
+      const compressedImage = await compressAndResizeImage(file, 200);
+      const sizeInBytes = estimateDataUrlSize(compressedImage);
+      
+      setSquares(currentSquares =>
+        currentSquares.map((square, i) =>
+          i === index ? { ...square, image: compressedImage } : square
+        )
+      );
+      
+      setMessage(`Image uploaded for square! (${formatBytes(sizeInBytes)})`);
+    } catch (error) {
+      console.error('Error uploading square image:', error);
+      setMessage('Error uploading image. Please try again.');
+    }
+  }, [setMessage]);
+
   // Function to generate BINGO square text using the Gemini API
   const generateBingoSquares = useCallback(async () => {
     if (!bingoTopic || !apiKey || isLoading) {
@@ -437,7 +592,7 @@ const App = () => {
       boardSize,
       squares,
       colors,
-      bingoImage: null, // Always exclude the image from the cookie
+      bingoImage: null, // Always exclude the global image from the cookie
       overlayOpacity,
       fontSize,
       isBattleMode,
@@ -480,7 +635,7 @@ const App = () => {
 
       if (showMessage) {
         if (bingoImage) {
-            saveMessage = 'Board saved! Marker image is in the text box but not in the auto-saved cookie.';
+            saveMessage = 'Board saved! Global marker image is in the text box but not in the auto-saved cookie. Individual square images are saved in both.';
         }
         setMessage(saveMessage);
       }
@@ -521,7 +676,7 @@ const App = () => {
     setColors(defaultColors);
     setBingoImage(null);
     setOverlayOpacity(0.8);
-    setFontSize(1);
+    setFontSize(1.8);
     setIsEditing(true);
     setSaveLoadString('');
     setBingoTopic('');
@@ -666,6 +821,7 @@ const App = () => {
           onDragEnd={handleDragEnd}
         >
         <div
+          ref={boardRef}
           className="bingo-board flex flex-wrap p-4 rounded-2xl shadow-xl border-4"
           style={{
             borderColor: colors.squareBorder,
@@ -695,6 +851,10 @@ const App = () => {
                   winningSquareIndices={winningSquareIndices}
                   fontSize={fontSize}
                   isHighlighted={isSpinning && highlightedIndex === index}
+                  isBeingMoved={movingIndex === index}
+                  onMoveSquare={handleMoveSquare}
+                  onSquareImageUpload={handleSquareImageUpload}
+                  setMessage={setMessage}
                 />
               ))}
             </SortableContext>
@@ -717,10 +877,41 @@ const App = () => {
                 winningSquareIndices={winningSquareIndices}
                 fontSize={fontSize}
                 isHighlighted={isSpinning && highlightedIndex === index}
+                isBeingMoved={movingIndex === index}
+                onMoveSquare={handleMoveSquare}
+                onSquareImageUpload={handleSquareImageUpload}
+                setMessage={setMessage}
               />
             ))
           )}
         </div>
+        {movingIndex !== null && boardRef.current && (
+          (() => {
+            const rect = boardRef.current.getBoundingClientRect();
+            const left = movingPos.x - rect.left - (movingCellSize / 2);
+            const top = movingPos.y - rect.top - (movingCellSize / 2);
+            const sq = squares[movingIndex];
+            return (
+              <div style={{ position: 'absolute', left, top, width: movingCellSize, height: movingCellSize, pointerEvents: 'none', zIndex: 60 }}>
+                <div style={{
+                  width: '100%',
+                  height: '100%',
+                  backgroundImage: sq?.image ? `url(${sq.image})` : 'none',
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: colors.squareBg,
+                  border: `2px solid ${colors.squareBorder}`,
+                  borderRadius: 8,
+                }}>
+                  {!sq?.image && <span style={{ color: colors.squareText, fontSize: `${fontSize}em` }}>{sq?.text}</span>}
+                </div>
+              </div>
+            );
+          })()
+        )}
         <DragOverlay>
           {activeId ? (
             <Square

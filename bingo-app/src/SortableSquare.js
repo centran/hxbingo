@@ -1,11 +1,11 @@
 import React from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import SquareContextMenu from './SquareContextMenu';
 
-export const SortableSquare = React.memo(({ id, square, index, squareBg, squareBorder, squareText, markedOverlay, bingoImage, overlayOpacity, isEditing, handleTextChange, toggleMarked, boardSize, winningSquareIndices, fontSize }) => {
+export const SortableSquare = React.memo(({ id, square, index, squareBg, squareBorder, squareText, markedOverlay, bingoImage, overlayOpacity, isEditing, handleTextChange, toggleMarked, boardSize, winningSquareIndices, fontSize, onMoveSquare, onSquareImageUpload, setMessage, isBeingMoved = false }) => {
   const {
     attributes,
-    listeners,
     setNodeRef,
     transform,
     transition,
@@ -25,27 +25,27 @@ export const SortableSquare = React.memo(({ id, square, index, squareBg, squareB
         onClick={toggleMarked}
         data-index={index}
         style={{
-            backgroundColor: squareBg,
-            borderColor: squareBorder,
-            color: squareText,
-            backgroundImage: square.isMarked && bingoImage ? `url(${bingoImage})` : 'none',
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            width: '100%',
-            aspectRatio: '1 / 1',
+          backgroundColor: squareBg,
+          borderColor: squareBorder,
+          color: squareText,
+          backgroundImage: (isEditing && square.image) || square.image || (square.isMarked && bingoImage) ? `url(${square.image || bingoImage})` : 'none',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          width: '100%',
+          aspectRatio: '1 / 1',
+          opacity: isBeingMoved ? 0.25 : 1,
+          pointerEvents: isBeingMoved ? 'none' : 'auto',
         }}
         className="relative flex items-center justify-center text-center rounded-lg transition-all duration-200 border-2"
       >
-        {isEditing && (
-          <div
-            {...listeners}
-            className="absolute top-1 right-1 p-1 cursor-grab rounded-full hover:bg-gray-200"
-            style={{ color: squareText, zIndex: 20 }}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="19" r="1"></circle>
-            </svg>
-          </div>
+        {isEditing && onMoveSquare && onSquareImageUpload && (
+          <SquareContextMenu
+            index={index}
+            onMove={onMoveSquare}
+            onImageUpload={onSquareImageUpload}
+            squareText={square.text}
+            setMessage={setMessage}
+          />
         )}
         {square.isMarked && (
             <div
