@@ -1,4 +1,5 @@
 import React from 'react';
+import SquareContextMenu from './SquareContextMenu';
 
 // Helper function to convert hex to rgba, handling potential invalid hex codes gracefully
 const hexToRgba = (hex, alpha) => {
@@ -87,7 +88,7 @@ const getComplementaryColor = (hex) => {
     return `#${toHex(r2)}${toHex(g2)}${toHex(b2)}`;
 };
 
-export const Square = React.memo(({ square, index, squareBg, squareBorder, squareText, markedOverlay, bingoImage, overlayOpacity, isEditing, handleTextChange, toggleMarked, boardSize, winningSquareIndices, fontSize, isBattleSquare = false, isHighlighted = false }) => {
+export const Square = React.memo(({ square, index, squareBg, squareBorder, squareText, markedOverlay, bingoImage, overlayOpacity, isEditing, handleTextChange, toggleMarked, boardSize, winningSquareIndices, fontSize, isBattleSquare = false, isHighlighted = false, onMoveSquare, onSquareImageUpload, setMessage, isBeingMoved = false }) => {
   const style = {
     boxSizing: 'border-box',
     width: `calc(100% / ${boardSize.cols})`,
@@ -105,11 +106,13 @@ export const Square = React.memo(({ square, index, squareBg, squareBorder, squar
       backgroundColor: squareBg,
       borderColor: squareBorder,
       color: squareText,
-      backgroundImage: square.isMarked && bingoImage && !isBattleSquare ? `url(${bingoImage})` : 'none',
+      backgroundImage: (isEditing && square.image) || (square.image && !isBattleSquare) || (square.isMarked && (bingoImage && !isBattleSquare)) ? `url(${square.image || bingoImage})` : 'none',
       backgroundSize: 'cover',
       backgroundPosition: 'center',
       width: '100%',
       aspectRatio: '1 / 1',
+      opacity: isBeingMoved ? 0.25 : 1,
+      pointerEvents: isBeingMoved ? 'none' : 'auto',
   };
 
   if (isHighlighted) {
@@ -124,12 +127,14 @@ export const Square = React.memo(({ square, index, squareBg, squareBorder, squar
         className={squareClasses}
         data-index={index}
       >
-        {isEditing && (
-          <div
-            className="absolute top-1 right-1 p-1"
-            style={{ color: squareText, zIndex: 20 }}
-          >
-          </div>
+        {isEditing && onMoveSquare && onSquareImageUpload && (
+          <SquareContextMenu
+            index={index}
+            onMove={onMoveSquare}
+            onImageUpload={onSquareImageUpload}
+            squareText={square.text}
+            setMessage={setMessage}
+          />
         )}
         {square.isMarked && !isBattleSquare && (
             <div
