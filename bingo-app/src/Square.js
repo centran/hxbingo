@@ -88,7 +88,7 @@ const getComplementaryColor = (hex) => {
     return `#${toHex(r2)}${toHex(g2)}${toHex(b2)}`;
 };
 
-export const Square = React.memo(({ square, index, boardId, squareBg, squareBorder, squareText, markedOverlay, bingoImage, overlayOpacity, isEditing, handleTextChange, toggleMarked, boardSize, winningSquareIndices, fontSize, isBattleSquare = false, isHighlighted = false, onMoveSquare, onSquareImageUpload, setMessage, isBeingMoved = false }) => {
+export const Square = React.memo(({ square, index, boardId, squareBg, squareBorder, squareText, markedOverlay, bingoImage, overlayOpacity, isEditing, handleTextChange, toggleMarked, boardSize, winningSquareIndices, isBattleModeLock, fontSize, isBattleSquare = false, isHighlighted = false, onMoveSquare, onSquareImageUpload, setMessage, isBeingMoved = false }) => {
   const style = {
     boxSizing: 'border-box',
     width: `calc(100% / ${boardSize.cols})`,
@@ -141,7 +141,11 @@ export const Square = React.memo(({ square, index, boardId, squareBg, squareBord
             <div
                 className="absolute inset-0 rounded-lg marker-overlay"
                 style={{backgroundColor: hexToRgba(markedOverlay, overlayOpacity)}}
-            ></div>
+            >
+              {isBattleModeLock && winningSquareIndices && winningSquareIndices.has(index) && (
+                <div className="absolute top-1 right-1 text-xs" title="Locked">🔒</div>
+              )}
+            </div>
         )}
         {isEditing ? (
           <textarea

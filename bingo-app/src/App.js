@@ -208,6 +208,7 @@ const App = () => {
         setOverlayOpacity(loadedData.overlayOpacity || 0.8);
         setFontSize(loadedData.fontSize || 1.8);
         setIsBattleMode(loadedData.isBattleMode || false);
+        setIsBattleModeLock(loadedData.isBattleModeLock || false);
         setBattleSquares(loadedData.battleSquares || []);
         setMessage('Board loaded successfully!');
       } else {
@@ -438,23 +439,40 @@ const App = () => {
 
       const newMarkedStatus = !clickedSquare.isMarked;
       const searchText = clickedSquare.text.trim().toLowerCase();
+      let lockedCount = 0;
 
-      return currentBoards.map(b => ({
+      const newBoards = currentBoards.map(b => ({
         ...b,
-        squares: b.squares.map(sq => {
+        squares: b.squares.map((sq, sqIdx) => {
           // If it's the exact square clicked, always toggle it.
           if (b.id === boardId && sq.id === clickedSquare.id) {
             return { ...sq, isMarked: newMarkedStatus };
           }
-          // If it has matching non-empty text, toggle it too.
+          // If it has matching non-empty text, handle it.
           if (searchText && sq.text.trim().toLowerCase() === searchText) {
+            // If Battle Mode Lock is on and we're unmarking, don't unmark if it's in a winning line
+            if (isBattleMode && isBattleModeLock && !newMarkedStatus) {
+              const winningIndices = boardsWinningData[b.id]?.winningSquareIndices || new Set();
+              if (winningIndices.has(sqIdx)) {
+                lockedCount++;
+                return sq;
+              }
+            }
             return { ...sq, isMarked: newMarkedStatus };
           }
           return sq;
         })
       }));
+
+      if (lockedCount > 0) {
+        setTimeout(() => {
+          setMessage(`${lockedCount} square${lockedCount > 1 ? 's' : ''} remained marked because ${lockedCount > 1 ? 'they are' : 'it is'} in a winning line.`);
+        }, 0);
+      }
+
+      return newBoards;
     });
-  }, [isEditing]);
+  }, [isEditing, isBattleMode, isBattleModeLock, boardsWinningData, setMessage]);
 
   // Handler for moving a square in a direction
   const handleMoveSquare = useCallback((boardId, index, direction) => {
@@ -720,6 +738,7 @@ const App = () => {
       overlayOpacity,
       fontSize,
       isBattleMode,
+      isBattleModeLock,
       battleSquares,
     };
     try {
@@ -732,7 +751,7 @@ const App = () => {
     } catch (error) {
       console.error("Failed to save board to cookie:", error);
     }
-  }, [boardSize, boards, colors, overlayOpacity, fontSize, isBattleMode, battleSquares]);
+  }, [boardSize, boards, colors, overlayOpacity, fontSize, isBattleMode, isBattleModeLock, battleSquares]);
 
   const handleSave = useCallback((options = {}) => {
     const { showMessage = true } = options;
@@ -746,6 +765,7 @@ const App = () => {
       overlayOpacity,
       fontSize,
       isBattleMode,
+      isBattleModeLock,
       battleSquares,
     };
 
@@ -839,7 +859,7 @@ const App = () => {
     return () => {
       clearTimeout(debouncedSaveToCookie);
     };
-  }, [boards, boardSize, colors, overlayOpacity, fontSize, isBattleMode, battleSquares, saveToCookie]);
+  }, [boards, boardSize, colors, overlayOpacity, fontSize, isBattleMode, isBattleModeLock, battleSquares, saveToCookie]);
 
   const getSquareById = useCallback((id) => {
     for (const board of boards) {
@@ -1010,6 +1030,7 @@ const App = () => {
                         toggleMarked={() => toggleMarked(board.id, index)}
                         boardSize={boardSize}
                         winningSquareIndices={boardsWinningData[board.id]?.winningSquareIndices || new Set()}
+                        isBattleModeLock={isBattleModeLock}
                         fontSize={fontSize}
                         isHighlighted={isSpinning && highlightedBoardId === board.id && highlightedIndex === index}
                         isBeingMoved={movingBoardId === board.id && movingIndex === index}
@@ -1037,6 +1058,7 @@ const App = () => {
                       toggleMarked={() => toggleMarked(board.id, index)}
                       boardSize={boardSize}
                       winningSquareIndices={boardsWinningData[board.id]?.winningSquareIndices || new Set()}
+                      isBattleModeLock={isBattleModeLock}
                       fontSize={fontSize}
                       isHighlighted={isSpinning && highlightedBoardId === board.id && highlightedIndex === index}
                       isBeingMoved={movingBoardId === board.id && movingIndex === index}
