@@ -395,6 +395,20 @@ const App = () => {
     setMessage('Squares shuffled!');
   };
 
+  const shuffleAllBoards = () => {
+    setBoards(currentBoards =>
+      currentBoards.map(board => {
+        const shuffledSquares = [...board.squares];
+        for (let i = shuffledSquares.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [shuffledSquares[i], shuffledSquares[j]] = [shuffledSquares[j], shuffledSquares[i]];
+        }
+        return { ...board, squares: shuffledSquares };
+      })
+    );
+    setMessage('All boards shuffled');
+  };
+
   // Handler for the image file upload
   const handleImageUpload = (eventOrUrl) => {
     let fileOrUrl;
@@ -1227,6 +1241,13 @@ const App = () => {
           </div>
           <div className="flex flex-col gap-2 mt-4">
             <label className="text-sm font-medium text-gray-700">Shuffle Board</label>
+            <button
+              onClick={shuffleAllBoards}
+              style={{ backgroundColor: colors.buttonBg, color: colors.buttonText }}
+              className="w-full py-2 px-4 rounded-lg font-bold shadow-md text-xs hover:scale-105 transition-all duration-200"
+            >
+              SHUFFLE ALL
+            </button>
             <div className="grid grid-cols-2 gap-2">
               {boards.map((board, idx) => (
                 <button
