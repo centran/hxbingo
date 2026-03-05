@@ -88,7 +88,7 @@ const getComplementaryColor = (hex) => {
     return `#${toHex(r2)}${toHex(g2)}${toHex(b2)}`;
 };
 
-export const Square = React.memo(({ square, index, squareBg, squareBorder, squareText, markedOverlay, bingoImage, overlayOpacity, isEditing, handleTextChange, toggleMarked, boardSize, winningSquareIndices, fontSize, isBattleSquare = false, isHighlighted = false, onMoveSquare, onSquareImageUpload, setMessage, isBeingMoved = false }) => {
+export const Square = React.memo(({ square, index, boardId, squareBg, squareBorder, squareText, markedOverlay, bingoImage, overlayOpacity, isEditing, handleTextChange, toggleMarked, boardSize, winningSquareIndices, fontSize, isBattleSquare = false, isHighlighted = false, onMoveSquare, onSquareImageUpload, setMessage, isBeingMoved = false }) => {
   const style = {
     boxSizing: 'border-box',
     width: `calc(100% / ${boardSize.cols})`,
@@ -124,8 +124,9 @@ export const Square = React.memo(({ square, index, squareBg, squareBorder, squar
       <div
         onClick={toggleMarked}
         style={divStyle}
-        className={squareClasses}
+        className={`${squareClasses} bingo-square`}
         data-index={index}
+        data-board-id={boardId}
       >
         {isEditing && onMoveSquare && onSquareImageUpload && (
           <SquareContextMenu
@@ -138,7 +139,7 @@ export const Square = React.memo(({ square, index, squareBg, squareBorder, squar
         )}
         {square.isMarked && !isBattleSquare && (
             <div
-                className="absolute inset-0 rounded-lg"
+                className="absolute inset-0 rounded-lg marker-overlay"
                 style={{backgroundColor: hexToRgba(markedOverlay, overlayOpacity)}}
             ></div>
         )}
@@ -148,6 +149,7 @@ export const Square = React.memo(({ square, index, squareBg, squareBorder, squar
             value={square.text}
             onChange={handleTextChange}
             data-index={index}
+            data-board-id={boardId}
             style={{ color: squareText, zIndex: 10, fontSize: `${fontSize}em` }}
           />
         ) : (

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import './App.css';
 import {
   DndContext,
   closestCenter,
@@ -83,11 +84,11 @@ const checkWin = (squares, boardSize) => {
   return { lines, isBlackout };
 };
 
-const generateEmptyBoard = (rows, cols) => {
+const generateEmptyBoard = (rows, cols, boardId = 1) => {
   const newSquares = [];
   for (let i = 0; i < rows * cols; i++) {
     newSquares.push({
-      id: i + 1,
+      id: `${boardId}-${i + 1}`,
       text: '',
       isMarked: false,
       image: null,
@@ -109,15 +110,16 @@ const defaultColors = {
 const App = () => {
   const fileInputRef = useRef(null);
   const isInitialMount = useRef(true);
-  const boardRef = useRef(null);
+  const boardRefs = useRef({});
   const [movingIndex, setMovingIndex] = useState(null);
+  const [movingBoardId, setMovingBoardId] = useState(null);
   const [movingPos, setMovingPos] = useState({ x: 0, y: 0 });
   const [movingCellSize, setMovingCellSize] = useState(0);
   const suppressClickRef = useRef(false);
   // State for the board's dimensions
   const [boardSize, setBoardSize] = useState({ rows: 5, cols: 5 });
-  // State for the squares, each with text and marked status
-  const [squares, setSquares] = useState([]);
+  // State for multiple boards
+  const [boards, setBoards] = useState([]);
   // State to toggle between editing and playing modes
   const [isEditing, setIsEditing] = useState(true);
   // State for the uploaded image to be used as a marker
@@ -137,18 +139,20 @@ const App = () => {
   const [apiKey, setApiKey] = useState(API_CONFIG.GEMINI_API_KEY);
   // State to track if the AI is generating content
   const [isLoading, setIsLoading] = useState(false);
-  const [activeId, setActiveId] = useState(null);
+  const [activeSquareId, setActiveSquareId] = useState(null);
+  const [activeBoardId, setActiveBoardId] = useState(null);
   const [saveLoadString, setSaveLoadString] = useState('');
   const [isGeneratorOpen, setIsGeneratorOpen] = useState(false);
-  const [winningLines, setWinningLines] = useState([]);
-  const [winningSquareIndices, setWinningSquareIndices] = useState(new Set());
+  const [boardsWinningData, setBoardsWinningData] = useState({});
   const [showConfetti, setShowConfetti] = useState(false);
   const [isBlackout, setIsBlackout] = useState(false);
+  const [hasSeenBlackout, setHasSeenBlackout] = useState(false);
   const [isBattleMode, setIsBattleMode] = useState(false);
   const [isBattleModeLock, setIsBattleModeLock] = useState(false);
   const [battleSquares, setBattleSquares] = useState([]);
   const [isSpinning, setIsSpinning] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(null);
+  const [highlightedBoardId, setHighlightedBoardId] = useState(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -159,7 +163,11 @@ const App = () => {
 
   // Function to create a new board with default text
   const initializeBoard = useCallback(() => {
-    setSquares(generateEmptyBoard(boardSize.rows, boardSize.cols));
+    setBoards([{
+      id: Date.now(),
+      title: 'Board 1',
+      squares: generateEmptyBoard(boardSize.rows, boardSize.cols, Date.now())
+    }]);
   }, [boardSize.rows, boardSize.cols]);
 
   const initializeBattleBoard = useCallback(() => {
@@ -183,9 +191,18 @@ const App = () => {
       const decompressed = pako.inflate(decoded, { to: 'string' });
       const loadedData = JSON.parse(decompressed);
 
-        if (loadedData.boardSize && loadedData.squares && loadedData.colors) {
+        if (loadedData.boardSize && (loadedData.boards || loadedData.squares) && loadedData.colors) {
         setBoardSize(loadedData.boardSize);
-        setSquares(loadedData.squares);
+        if (loadedData.boards) {
+          setBoards(loadedData.boards);
+        } else {
+          // Migration for old single-board save data
+          setBoards([{
+            id: Date.now(),
+            title: 'Board 1',
+            squares: loadedData.squares
+          }]);
+        }
         setColors(loadedData.colors);
         setBingoImage(loadedData.bingoImage || null);
         setOverlayOpacity(loadedData.overlayOpacity || 0.8);
@@ -226,42 +243,55 @@ const App = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const winCheckResult = useMemo(() => {
-    if (isEditing || !squares.length) {
-      return { winningLines: [], winningSquareIndices: new Set(), isBlackout: false };
+  const winCheckResults = useMemo(() => {
+    if (isEditing || !boards.length) {
+      return { results: {}, globalIsBlackout: false };
     }
-    const { lines, isBlackout } = checkWin(squares, boardSize);
-    const indices = new Set(lines.flat());
-    const lineIds = lines.map(line => line.sort((a, b) => a - b).join('-'));
-    return { winningLines: lineIds, winningSquareIndices: indices, isBlackout };
-  }, [squares, boardSize, isEditing]);
+    const results = {};
+    let globalIsBlackout = false;
+    boards.forEach(board => {
+      const { lines, isBlackout } = checkWin(board.squares, boardSize);
+      const indices = new Set(lines.flat());
+      const lineIds = lines.map(line => line.sort((a, b) => a - b).join('-'));
+      results[board.id] = { winningLines: lineIds, winningSquareIndices: indices, isBlackout };
+      if (isBlackout) globalIsBlackout = true;
+    });
+    return { results, globalIsBlackout };
+  }, [boards, boardSize, isEditing]);
 
   // Effect to check for a win whenever the squares change
   useEffect(() => {
     if (!FEATURES.WIN_DETECTION_ENABLED) return;
 
-    const { winningLines: currentWinningLineIds, winningSquareIndices: allCurrentWinningIndices, isBlackout: currentIsBlackout } = winCheckResult;
+    const { results: currentResults, globalIsBlackout } = winCheckResults;
 
     if (FEATURES.BLACKOUT_EASTER_EGG_ENABLED) {
-      setIsBlackout(currentIsBlackout);
-    }
-
-    const newWinningSquareIndicesString = JSON.stringify(Array.from(allCurrentWinningIndices).sort());
-    const oldWinningSquareIndicesString = JSON.stringify(Array.from(winningSquareIndices).sort());
-
-    if (newWinningSquareIndicesString !== oldWinningSquareIndicesString) {
-      setWinningSquareIndices(allCurrentWinningIndices);
-    }
-
-    if (JSON.stringify(currentWinningLineIds) !== JSON.stringify(winningLines)) {
-      const newLinesFound = currentWinningLineIds.length > winningLines.length;
-      if (newLinesFound) {
-        setShowConfetti(true);
-        setMessage('BINGO!');
+      if (globalIsBlackout && !hasSeenBlackout) {
+        setIsBlackout(true);
+        setHasSeenBlackout(true);
+      } else if (!globalIsBlackout) {
+        setIsBlackout(false);
+        setHasSeenBlackout(false);
       }
-      setWinningLines(currentWinningLineIds);
     }
-  }, [winCheckResult, winningLines, winningSquareIndices]);
+
+    let anyNewWin = false;
+    Object.keys(currentResults).forEach(boardId => {
+      const currentBoardResult = currentResults[boardId];
+      const prevBoardResult = boardsWinningData[boardId] || { winningLines: [], winningSquareIndices: new Set() };
+
+      if (currentBoardResult.winningLines.length > prevBoardResult.winningLines.length) {
+        anyNewWin = true;
+      }
+    });
+
+    if (anyNewWin) {
+      setShowConfetti(true);
+      setMessage('BINGO!');
+    }
+
+    setBoardsWinningData(currentResults);
+  }, [winCheckResults, boardsWinningData]);
 
   // Handler for changing the board dimensions
   const handleBoardSizeChange = (e) => {
@@ -269,7 +299,11 @@ const App = () => {
     const [rows, cols] = value.split('x').map(Number);
     const newSize = { rows, cols };
     setBoardSize(newSize);
-    setSquares(generateEmptyBoard(newSize.rows, newSize.cols));
+
+    setBoards(currentBoards => currentBoards.map(board => ({
+      ...board,
+      squares: generateEmptyBoard(newSize.rows, newSize.cols, board.id)
+    })));
 
     if (FEATURES.BATTLE_MODE_ENABLED) {
         const newBattleSquares = [];
@@ -284,25 +318,79 @@ const App = () => {
     }
   };
 
+  const addBoard = () => {
+    const lastBoard = boards[boards.length - 1];
+    const newBoardId = Date.now();
+    const newSquares = generateEmptyBoard(boardSize.rows, boardSize.cols, newBoardId);
+
+    if (lastBoard) {
+      lastBoard.squares.forEach((sq, i) => {
+        if (sq.text) {
+          newSquares[i].text = sq.text;
+        }
+      });
+    }
+
+    setBoards([...boards, {
+      id: newBoardId,
+      title: `Board ${boards.length + 1}`,
+      squares: newSquares
+    }]);
+    setMessage('New board added!');
+  };
+
+  const deleteBoard = (boardId) => {
+    if (boards.length <= 1) {
+      setMessage('Cannot delete the last board.');
+      return;
+    }
+    setBoards(boards.filter(b => b.id !== boardId));
+    setMessage('Board deleted.');
+  };
+
+  const handleTitleChange = (boardId, newTitle) => {
+    setBoards(currentBoards =>
+      currentBoards.map(board =>
+        board.id === boardId ? { ...board, title: newTitle } : board
+      )
+    );
+  };
+
   // Handler for text changes in a square's textarea
   const handleTextChange = useCallback((e) => {
     const newText = e.target.value;
     const index = parseInt(e.target.dataset.index, 10);
-    setSquares(currentSquares =>
-      currentSquares.map((square, i) =>
-        i === index ? { ...square, text: newText } : square
+    const boardId = parseInt(e.target.dataset.boardId, 10);
+
+    setBoards(currentBoards =>
+      currentBoards.map(board =>
+        board.id === boardId
+          ? {
+              ...board,
+              squares: board.squares.map((square, i) =>
+                i === index ? { ...square, text: newText } : square
+              )
+            }
+          : board
       )
     );
   }, []);
 
   // Function to shuffle the squares array randomly
-  const shuffleSquares = () => {
-    const shuffledSquares = [...squares];
-    for (let i = shuffledSquares.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffledSquares[i], shuffledSquares[j]] = [shuffledSquares[j], shuffledSquares[i]];
-    }
-    setSquares(shuffledSquares);
+  const shuffleSquares = (boardId) => {
+    setBoards(currentBoards =>
+      currentBoards.map(board => {
+        if (board.id === boardId) {
+          const shuffledSquares = [...board.squares];
+          for (let i = shuffledSquares.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [shuffledSquares[i], shuffledSquares[j]] = [shuffledSquares[j], shuffledSquares[i]];
+          }
+          return { ...board, squares: shuffledSquares };
+        }
+        return board;
+      })
+    );
     setMessage('Squares shuffled!');
   };
 
@@ -339,29 +427,42 @@ const App = () => {
   };
 
   // Function to toggle the marked status of a square
-  const toggleMarked = useCallback((eventOrIndex) => {
+  const toggleMarked = useCallback((boardId, index) => {
     if (isEditing) return;
 
-    const index = typeof eventOrIndex === 'number'
-      ? eventOrIndex
-      : parseInt(eventOrIndex.currentTarget.dataset.index, 10);
+    setBoards(currentBoards => {
+      const board = currentBoards.find(b => b.id === boardId);
+      if (!board) return currentBoards;
+      const clickedSquare = board.squares[index];
+      if (!clickedSquare) return currentBoards;
 
-    if (isNaN(index)) return;
+      const newMarkedStatus = !clickedSquare.isMarked;
+      const searchText = clickedSquare.text.trim().toLowerCase();
 
-    setSquares(currentSquares =>
-      currentSquares.map((square, i) =>
-        i === index ? { ...square, isMarked: !square.isMarked } : square
-      )
-    );
+      return currentBoards.map(b => ({
+        ...b,
+        squares: b.squares.map(sq => {
+          // If it's the exact square clicked, always toggle it.
+          if (b.id === boardId && sq.id === clickedSquare.id) {
+            return { ...sq, isMarked: newMarkedStatus };
+          }
+          // If it has matching non-empty text, toggle it too.
+          if (searchText && sq.text.trim().toLowerCase() === searchText) {
+            return { ...sq, isMarked: newMarkedStatus };
+          }
+          return sq;
+        })
+      }));
+    });
   }, [isEditing]);
 
   // Handler for moving a square in a direction
-  const handleMoveSquare = useCallback((index, direction) => {
+  const handleMoveSquare = useCallback((boardId, index, direction) => {
     if (!isEditing) return;
 
     // If direction is 'start', enter free-move mode for this square
     if (direction === 'start') {
-      const boardEl = boardRef.current;
+      const boardEl = boardRefs.current[boardId];
       if (!boardEl) return;
       const rect = boardEl.getBoundingClientRect();
       const cols = boardSize.cols;
@@ -373,6 +474,7 @@ const App = () => {
       setMovingCellSize(cellSize);
       setMovingPos({ x: centerX, y: centerY });
       setMovingIndex(index);
+      setMovingBoardId(boardId);
       // suppress the click that initiated move so it doesn't immediately place
       suppressClickRef.current = true;
       setMessage('Click to place the square, or press Esc to cancel.');
@@ -380,50 +482,54 @@ const App = () => {
     }
 
     // fallback: support directional moves (kept for compatibility)
-    setSquares(currentSquares => {
-      const newSquares = [...currentSquares];
-      const { rows, cols } = boardSize;
-      let newIndex = index;
+    setBoards(currentBoards =>
+      currentBoards.map(board => {
+        if (board.id === boardId) {
+          const newSquares = [...board.squares];
+          const { rows, cols } = boardSize;
+          let newIndex = index;
 
-      // Calculate new index based on direction
-      switch (direction) {
-        case 'up':
-          if (index >= cols) {
-            newIndex = index - cols;
+          // Calculate new index based on direction
+          switch (direction) {
+            case 'up':
+              if (index >= cols) {
+                newIndex = index - cols;
+              }
+              break;
+            case 'down':
+              if (index < rows * cols - cols) {
+                newIndex = index + cols;
+              }
+              break;
+            case 'left':
+              if (index % cols !== 0) {
+                newIndex = index - 1;
+              }
+              break;
+            case 'right':
+              if ((index + 1) % cols !== 0) {
+                newIndex = index + 1;
+              }
+              break;
+            default:
+              return board;
           }
-          break;
-        case 'down':
-          if (index < rows * cols - cols) {
-            newIndex = index + cols;
-          }
-          break;
-        case 'left':
-          if (index % cols !== 0) {
-            newIndex = index - 1;
-          }
-          break;
-        case 'right':
-          if ((index + 1) % cols !== 0) {
-            newIndex = index + 1;
-          }
-          break;
-        default:
-          return currentSquares;
-      }
 
-      // Swap squares
-      if (newIndex !== index) {
-        [newSquares[index], newSquares[newIndex]] = [newSquares[newIndex], newSquares[index]];
-        setMessage(`Square moved ${direction}!`);
-      }
-
-      return newSquares;
-    });
+          // Swap squares
+          if (newIndex !== index) {
+            [newSquares[index], newSquares[newIndex]] = [newSquares[newIndex], newSquares[index]];
+            setMessage(`Square moved ${direction}!`);
+          }
+          return { ...board, squares: newSquares };
+        }
+        return board;
+      })
+    );
   }, [isEditing, boardSize, setMessage]);
 
   // Free-move mode: track mouse and handle drop / cancel
   useEffect(() => {
-    if (movingIndex === null) return;
+    if (movingIndex === null || movingBoardId === null) return;
 
     const handleMouseMove = (e) => {
       setMovingPos({ x: e.clientX, y: e.clientY });
@@ -435,9 +541,11 @@ const App = () => {
         suppressClickRef.current = false;
         return;
       }
-      const boardEl = boardRef.current;
+
+      const boardEl = boardRefs.current[movingBoardId];
       if (!boardEl) {
         setMovingIndex(null);
+        setMovingBoardId(null);
         return;
       }
       const rect = boardEl.getBoundingClientRect();
@@ -454,20 +562,27 @@ const App = () => {
       if (row >= rows) row = rows - 1;
       const dropIndex = row * cols + col;
 
-      setSquares(current => {
-        const arr = [...current];
-        const item = arr.splice(movingIndex, 1)[0];
-        arr.splice(dropIndex, 0, item);
-        return arr;
-      });
+      setBoards(currentBoards =>
+        currentBoards.map(board => {
+          if (board.id === movingBoardId) {
+            const arr = [...board.squares];
+            const item = arr.splice(movingIndex, 1)[0];
+            arr.splice(dropIndex, 0, item);
+            return { ...board, squares: arr };
+          }
+          return board;
+        })
+      );
 
       setMessage('Square moved!');
       setMovingIndex(null);
+      setMovingBoardId(null);
     };
 
     const handleKey = (e) => {
       if (e.key === 'Escape') {
         setMovingIndex(null);
+        setMovingBoardId(null);
         setMessage('Move canceled');
       }
     };
@@ -481,17 +596,24 @@ const App = () => {
       document.removeEventListener('click', handleClick);
       document.removeEventListener('keydown', handleKey);
     };
-  }, [movingIndex, boardSize]);
+  }, [movingIndex, movingBoardId, boardSize]);
 
   // Handler for uploading an image to a specific square
-  const handleSquareImageUpload = useCallback(async (file, index) => {
+  const handleSquareImageUpload = useCallback(async (boardId, index, file) => {
     try {
       const compressedImage = await compressAndResizeImage(file, 200);
       const sizeInBytes = estimateDataUrlSize(compressedImage);
       
-      setSquares(currentSquares =>
-        currentSquares.map((square, i) =>
-          i === index ? { ...square, image: compressedImage } : square
+      setBoards(currentBoards =>
+        currentBoards.map(board =>
+          board.id === boardId
+            ? {
+                ...board,
+                squares: board.squares.map((square, i) =>
+                  i === index ? { ...square, image: compressedImage } : square
+                )
+              }
+            : board
         )
       );
       
@@ -515,7 +637,7 @@ const App = () => {
 
     try {
       const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
       const prompt = `Generate a list of exactly ${boardSize.rows * boardSize.cols} items related to '${bingoTopic}'. The items should be single-word or short phrases, suitable for a BINGO card. Return ONLY a valid JSON array of strings with no additional text. Example format: ["item1", "item2", "item3"]`;
 
@@ -527,13 +649,21 @@ const App = () => {
       const jsonMatch = text.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
         const generatedItems = JSON.parse(jsonMatch[0]);
-        const newSquares = generatedItems.slice(0, boardSize.rows * boardSize.cols).map((item, index) => ({
-          id: index + 1,
-          text: item,
-          isMarked: false,
+        setBoards(currentBoards => currentBoards.map((board, bIdx) => {
+          if (bIdx === 0) {
+            return {
+              ...board,
+              squares: generatedItems.slice(0, boardSize.rows * boardSize.cols).map((item, index) => ({
+                id: `${board.id}-${index + 1}`,
+                text: item,
+                isMarked: false,
+                image: null,
+              }))
+            };
+          }
+          return board;
         }));
-        setSquares(newSquares);
-        setMessage('Bingo squares generated!');
+        setMessage('Bingo squares generated for Board 1!');
       } else {
         setMessage('Could not parse generated content. Please try again.');
       }
@@ -551,21 +681,32 @@ const App = () => {
   }, [apiKey, bingoTopic, boardSize, isLoading]);
 
   const handleDragStart = useCallback((event) => {
-    setActiveId(event.active.id);
-  }, []);
+    setActiveSquareId(event.active.id);
+    // Find boardId for the active square
+    const boardId = boards.find(b => b.squares.some(s => s.id === event.active.id))?.id;
+    setActiveBoardId(boardId);
+  }, [boards]);
 
   const handleDragEnd = useCallback((event) => {
     const { active, over } = event;
 
-    if (active.id !== over.id) {
-      setSquares((items) => {
-        const oldIndex = items.findIndex((item) => item.id === active.id);
-        const newIndex = items.findIndex((item) => item.id === over.id);
-        return arrayMove(items, oldIndex, newIndex);
+    if (over && active.id !== over.id) {
+      setBoards((currentBoards) => {
+        return currentBoards.map(board => {
+          if (board.id === activeBoardId) {
+            const oldIndex = board.squares.findIndex((item) => item.id === active.id);
+            const newIndex = board.squares.findIndex((item) => item.id === over.id);
+            if (oldIndex !== -1 && newIndex !== -1) {
+              return { ...board, squares: arrayMove(board.squares, oldIndex, newIndex) };
+            }
+          }
+          return board;
+        });
       });
     }
-    setActiveId(null);
-  }, []);
+    setActiveSquareId(null);
+    setActiveBoardId(null);
+  }, [activeBoardId]);
 
   const toBase64 = (arr) => btoa(String.fromCharCode.apply(null, arr));
   const fromBase64 = (str) => new Uint8Array(atob(str).split('').map(c => c.charCodeAt(0)));
@@ -573,7 +714,7 @@ const App = () => {
   const saveToCookie = useCallback(() => {
     const saveData = {
       boardSize,
-      squares,
+      boards,
       colors,
       bingoImage: null, // Always exclude the global image from the cookie
       overlayOpacity,
@@ -591,7 +732,7 @@ const App = () => {
     } catch (error) {
       console.error("Failed to save board to cookie:", error);
     }
-  }, [boardSize, squares, colors, overlayOpacity, fontSize, isBattleMode, battleSquares]);
+  }, [boardSize, boards, colors, overlayOpacity, fontSize, isBattleMode, battleSquares]);
 
   const handleSave = useCallback((options = {}) => {
     const { showMessage = true } = options;
@@ -599,7 +740,7 @@ const App = () => {
 
     const saveDataForTextbox = {
       boardSize,
-      squares,
+      boards,
       colors,
       bingoImage,
       overlayOpacity,
@@ -629,7 +770,7 @@ const App = () => {
         setMessage('Could not save board.');
       }
     }
-  }, [bingoImage, boardSize, squares, colors, overlayOpacity, fontSize, isBattleMode, battleSquares, saveToCookie]);
+  }, [bingoImage, boardSize, boards, colors, overlayOpacity, fontSize, isBattleMode, battleSquares, saveToCookie]);
 
   const handleLoad = useCallback(() => {
     if (!saveLoadString) {
@@ -642,7 +783,12 @@ const App = () => {
   const handleReset = useCallback(() => {
     const defaultSize = { rows: 5, cols: 5 };
     setBoardSize(defaultSize);
-    setSquares(generateEmptyBoard(defaultSize.rows, defaultSize.cols));
+    const initialBoardId = Date.now();
+    setBoards([{
+      id: initialBoardId,
+      title: 'Board 1',
+      squares: generateEmptyBoard(defaultSize.rows, defaultSize.cols, initialBoardId)
+    }]);
 
     if (FEATURES.BATTLE_MODE_ENABLED) {
         const newBattleSquares = [];
@@ -663,8 +809,7 @@ const App = () => {
     setIsEditing(true);
     setSaveLoadString('');
     setBingoTopic('');
-    setWinningLines([]);
-    setWinningSquareIndices(new Set());
+    setBoardsWinningData({});
     setShowConfetti(false);
     setIsBlackout(false);
     setIsBattleMode(false);
@@ -694,24 +839,30 @@ const App = () => {
     return () => {
       clearTimeout(debouncedSaveToCookie);
     };
-  }, [squares, boardSize, colors, overlayOpacity, fontSize, isBattleMode, battleSquares, saveToCookie]);
+  }, [boards, boardSize, colors, overlayOpacity, fontSize, isBattleMode, battleSquares, saveToCookie]);
 
-  const getSquareById = useCallback((id) => squares.find(s => s.id === id), [squares]);
+  const getSquareById = useCallback((id) => {
+    for (const board of boards) {
+      const sq = board.squares.find(s => s.id === id);
+      if (sq) return sq;
+    }
+    return null;
+  }, [boards]);
 
   const getAvailableMarkedSquares = useCallback(() => {
-    let markedSquaresIndices = squares.reduce((acc, square, index) => {
-      if (square.isMarked) {
-        acc.push(index);
-      }
-      return acc;
-    }, []);
-
-    if (isBattleModeLock) {
-      return markedSquaresIndices.filter(index => !winningSquareIndices.has(index));
-    }
-
-    return markedSquaresIndices;
-  }, [squares, isBattleModeLock, winningSquareIndices]);
+    let available = [];
+    boards.forEach(board => {
+      const boardWinningIndices = boardsWinningData[board.id]?.winningSquareIndices || new Set();
+      board.squares.forEach((square, index) => {
+        if (square.isMarked) {
+          if (!isBattleModeLock || !boardWinningIndices.has(index)) {
+            available.push({ boardId: board.id, index });
+          }
+        }
+      });
+    });
+    return available;
+  }, [boards, isBattleModeLock, boardsWinningData]);
 
   const handleBattleTextChange = useCallback((e) => {
     const newText = e.target.value;
@@ -753,7 +904,8 @@ const App = () => {
     const spin = () => {
       const randomIndex = Math.floor(Math.random() * availableSquares.length);
       const highlighted = availableSquares[randomIndex];
-      setHighlightedIndex(highlighted);
+      setHighlightedIndex(highlighted.index);
+      setHighlightedBoardId(highlighted.boardId);
 
       spinCount++;
       if (spinCount < maxSpins) {
@@ -764,13 +916,14 @@ const App = () => {
         let flashCount = 0;
         const maxFlashes = 10; // 5 flashes on and off
         const flashInterval = setInterval(() => {
-          setHighlightedIndex(prev => (prev === null ? highlighted : null));
+          setHighlightedIndex(prev => (prev === null ? highlighted.index : null));
           flashCount++;
           if (flashCount >= maxFlashes) {
             clearInterval(flashInterval);
-            toggleMarked(highlighted);
+            toggleMarked(highlighted.boardId, highlighted.index);
             setIsSpinning(false);
             setHighlightedIndex(null);
+            setHighlightedBoardId(null);
             setMessage('A marked square has been removed!');
           }
         }, 150);
@@ -792,138 +945,179 @@ const App = () => {
   }, [message]);
 
   return (
-    <div className="min-h-screen p-8 flex flex-col items-center font-sans" style={{ backgroundColor: colors.boardBg }}>
+    <div className="min-h-screen p-4 md:p-8 flex flex-col items-center font-sans" style={{ backgroundColor: colors.boardBg }}>
       {showConfetti && <Confetti recycle={false} onConfettiComplete={() => setShowConfetti(false)} />}
 
-      {/* The BINGO Board */}
-      <div style={{ position: 'relative', width: '100%', maxWidth: '800px' }}>
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-        >
-        <div
-          ref={boardRef}
-          className="bingo-board flex flex-wrap p-4 rounded-2xl shadow-xl border-4"
-          style={{
-            borderColor: colors.squareBorder,
-            backgroundColor: colors.boardBg,
-            width: '100%',
-            maxWidth: '800px',
-          }}
-        >
-          {FEATURES.DND_ENABLED && isEditing ? (
-            <SortableContext items={squares.map(s => s.id)} strategy={rectSortingStrategy}>
-              {squares.map((square, index) => (
-                <SortableSquare
-                  key={square.id}
-                  id={square.id}
-                  square={square}
-                  index={index}
-                  squareBg={colors.squareBg}
-                  squareBorder={colors.squareBorder}
-                  squareText={colors.squareText}
-                  markedOverlay={colors.markedOverlay}
-                  bingoImage={bingoImage}
-                  overlayOpacity={overlayOpacity}
-                  isEditing={isEditing}
-                  handleTextChange={handleTextChange}
-                  toggleMarked={toggleMarked}
-                  boardSize={boardSize}
-                  winningSquareIndices={winningSquareIndices}
-                  fontSize={fontSize}
-                  isHighlighted={isSpinning && highlightedIndex === index}
-                  isBeingMoved={movingIndex === index}
-                  onMoveSquare={handleMoveSquare}
-                  onSquareImageUpload={handleSquareImageUpload}
-                  setMessage={setMessage}
-                />
-              ))}
-            </SortableContext>
-          ) : (
-            squares.map((square, index) => (
-              <Square
-                key={square.id}
-                square={square}
-                index={index}
-                squareBg={colors.squareBg}
-                squareBorder={colors.squareBorder}
-                squareText={colors.squareText}
-                markedOverlay={colors.markedOverlay}
-                bingoImage={bingoImage}
-                overlayOpacity={overlayOpacity}
-                isEditing={isEditing}
-                handleTextChange={handleTextChange}
-                toggleMarked={toggleMarked}
-                boardSize={boardSize}
-                winningSquareIndices={winningSquareIndices}
-                fontSize={fontSize}
-                isHighlighted={isSpinning && highlightedIndex === index}
-                isBeingMoved={movingIndex === index}
-                onMoveSquare={handleMoveSquare}
-                onSquareImageUpload={handleSquareImageUpload}
-                setMessage={setMessage}
-              />
-            ))
-          )}
-        </div>
-        {movingIndex !== null && boardRef.current && (
-          (() => {
-            const rect = boardRef.current.getBoundingClientRect();
-            const left = movingPos.x - rect.left - (movingCellSize / 2);
-            const top = movingPos.y - rect.top - (movingCellSize / 2);
-            const sq = squares[movingIndex];
-            return (
-              <div style={{ position: 'absolute', left, top, width: movingCellSize, height: movingCellSize, pointerEvents: 'none', zIndex: 60 }}>
-                <div style={{
-                  width: '100%',
-                  height: '100%',
-                  backgroundImage: sq?.image ? `url(${sq.image})` : 'none',
-                  backgroundSize: 'cover',
-                  backgroundPosition: 'center',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  backgroundColor: colors.squareBg,
-                  border: `2px solid ${colors.squareBorder}`,
-                  borderRadius: 8,
-                }}>
-                  {!sq?.image && <span style={{ color: colors.squareText, fontSize: `${fontSize}em` }}>{sq?.text}</span>}
-                </div>
+      {/* The BINGO Boards */}
+      <div className="bingo-board-container mb-8">
+        {boards.map((board) => (
+          <div key={board.id} className="board-wrapper">
+            <div className="flex flex-col mb-2">
+              <div className="flex items-center justify-between mb-2">
+                {isEditing ? (
+                  <input
+                    type="text"
+                    value={board.title}
+                    onChange={(e) => handleTitleChange(board.id, e.target.value)}
+                    className="text-xl font-bold bg-transparent border-b border-gray-300 focus:border-indigo-500 outline-none px-2 py-1 w-full mr-4"
+                  />
+                ) : (
+                  <h2 className="text-2xl font-bold text-center w-full" style={{ color: colors.squareText }}>{board.title}</h2>
+                )}
+                {isEditing && (
+                  <button
+                    onClick={() => deleteBoard(board.id)}
+                    className="bg-red-500 text-white w-8 h-8 rounded-full flex items-center justify-center hover:bg-red-600 transition-colors shadow-md"
+                    title="Delete Board"
+                  >
+                    ✕
+                  </button>
+                )}
               </div>
-            );
-          })()
-        )}
-        <DragOverlay>
-          {activeId ? (
-            <Square
-              square={getSquareById(activeId)}
-              boardSize={boardSize}
-              squareBg={colors.squareBg}
-              squareBorder={colors.squareBorder}
-              squareText={colors.squareText}
-              markedOverlay={colors.markedOverlay}
-              bingoImage={bingoImage}
-              overlayOpacity={overlayOpacity}
-              isEditing={isEditing}
-              winningSquareIndices={winningSquareIndices}
-              fontSize={fontSize}
-              isHighlighted={true}
-            />
-          ) : null}
-        </DragOverlay>
-        </DndContext>
-        {FEATURES.BLACKOUT_EASTER_EGG_ENABLED && isBlackout && (
-          <VideoOverlay
-            src="/hxbingo/blackout.mp4"
-            onClose={() => setIsBlackout(false)}
-          />
+            </div>
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+            >
+              <div
+                ref={(el) => (boardRefs.current[board.id] = el)}
+                className="bingo-board flex flex-wrap p-4 rounded-2xl shadow-xl border-4"
+                style={{
+                  borderColor: colors.squareBorder,
+                  backgroundColor: colors.boardBg,
+                  width: '100%',
+                }}
+              >
+                {FEATURES.DND_ENABLED && isEditing ? (
+                  <SortableContext items={board.squares.map(s => s.id)} strategy={rectSortingStrategy}>
+                    {board.squares.map((square, index) => (
+                      <SortableSquare
+                        key={square.id}
+                        id={square.id}
+                        square={square}
+                        index={index}
+                        boardId={board.id}
+                        squareBg={colors.squareBg}
+                        squareBorder={colors.squareBorder}
+                        squareText={colors.squareText}
+                        markedOverlay={colors.markedOverlay}
+                        bingoImage={bingoImage}
+                        overlayOpacity={overlayOpacity}
+                        isEditing={isEditing}
+                        handleTextChange={handleTextChange}
+                        toggleMarked={() => toggleMarked(board.id, index)}
+                        boardSize={boardSize}
+                        winningSquareIndices={boardsWinningData[board.id]?.winningSquareIndices || new Set()}
+                        fontSize={fontSize}
+                        isHighlighted={isSpinning && highlightedBoardId === board.id && highlightedIndex === index}
+                        isBeingMoved={movingBoardId === board.id && movingIndex === index}
+                        onMoveSquare={(idx, dir) => handleMoveSquare(board.id, idx, dir)}
+                        onSquareImageUpload={(file, idx) => handleSquareImageUpload(board.id, idx, file)}
+                        setMessage={setMessage}
+                      />
+                    ))}
+                  </SortableContext>
+                ) : (
+                  board.squares.map((square, index) => (
+                    <Square
+                      key={square.id}
+                      square={square}
+                      index={index}
+                      boardId={board.id}
+                      squareBg={colors.squareBg}
+                      squareBorder={colors.squareBorder}
+                      squareText={colors.squareText}
+                      markedOverlay={colors.markedOverlay}
+                      bingoImage={bingoImage}
+                      overlayOpacity={overlayOpacity}
+                      isEditing={isEditing}
+                      handleTextChange={handleTextChange}
+                      toggleMarked={() => toggleMarked(board.id, index)}
+                      boardSize={boardSize}
+                      winningSquareIndices={boardsWinningData[board.id]?.winningSquareIndices || new Set()}
+                      fontSize={fontSize}
+                      isHighlighted={isSpinning && highlightedBoardId === board.id && highlightedIndex === index}
+                      isBeingMoved={movingBoardId === board.id && movingIndex === index}
+                      onMoveSquare={(idx, dir) => handleMoveSquare(board.id, idx, dir)}
+                      onSquareImageUpload={(file, idx) => handleSquareImageUpload(board.id, idx, file)}
+                      setMessage={setMessage}
+                    />
+                  ))
+                )}
+              </div>
+              {movingBoardId === board.id && movingIndex !== null && boardRefs.current[board.id] && (
+                (() => {
+                  const rect = boardRefs.current[board.id].getBoundingClientRect();
+                  const left = movingPos.x - rect.left - (movingCellSize / 2);
+                  const top = movingPos.y - rect.top - (movingCellSize / 2);
+                  const sq = board.squares[movingIndex];
+                  return (
+                    <div style={{ position: 'absolute', left, top, width: movingCellSize, height: movingCellSize, pointerEvents: 'none', zIndex: 60 }}>
+                      <div style={{
+                        width: '100%',
+                        height: '100%',
+                        backgroundImage: sq?.image ? `url(${sq.image})` : 'none',
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backgroundColor: colors.squareBg,
+                        border: `2px solid ${colors.squareBorder}`,
+                        borderRadius: 8,
+                      }}>
+                        {!sq?.image && <span style={{ color: colors.squareText, fontSize: `${fontSize}em` }}>{sq?.text}</span>}
+                      </div>
+                    </div>
+                  );
+                })()
+              )}
+              <DragOverlay>
+                {activeSquareId && activeBoardId === board.id ? (
+                  <Square
+                    square={getSquareById(activeSquareId)}
+                    boardSize={boardSize}
+                    squareBg={colors.squareBg}
+                    squareBorder={colors.squareBorder}
+                    squareText={colors.squareText}
+                    markedOverlay={colors.markedOverlay}
+                    bingoImage={bingoImage}
+                    overlayOpacity={overlayOpacity}
+                    isEditing={isEditing}
+                    winningSquareIndices={boardsWinningData[board.id]?.winningSquareIndices || new Set()}
+                    fontSize={fontSize}
+                    isHighlighted={true}
+                  />
+                ) : null}
+              </DragOverlay>
+            </DndContext>
+          </div>
+        ))}
+
+        {isEditing && (
+          <div className="flex items-center justify-center">
+            <button
+              onClick={addBoard}
+              className="w-16 h-16 rounded-full bg-indigo-600 text-white text-4xl flex items-center justify-center hover:scale-110 transition-all shadow-lg"
+              title="Add New Board"
+            >
+              +
+            </button>
+          </div>
         )}
       </div>
 
+      {FEATURES.BLACKOUT_EASTER_EGG_ENABLED && isBlackout && (
+        <VideoOverlay
+          src="/hxbingo/blackout.mp4"
+          onClose={() => setIsBlackout(false)}
+        />
+      )}
+
       {FEATURES.BATTLE_MODE_ENABLED && isBattleMode && (
-        <div className="mt-4 w-full" style={{ maxWidth: '800px' }}>
+        <div className="mt-8 w-full" style={{ maxWidth: '800px' }}>
           <div
             className="bingo-board flex flex-wrap p-2 rounded-2xl shadow-lg border-2"
             style={{
@@ -1008,13 +1202,21 @@ const App = () => {
               <option value="7x7">7x7</option>
             </select>
           </div>
-          <button
-            onClick={shuffleSquares}
-            style={{ backgroundColor: colors.buttonBg, color: colors.buttonText }}
-            className="mt-4 w-full py-2 px-4 rounded-lg font-bold shadow-md hover:scale-105 transition-all duration-200"
-          >
-            Shuffle Board
-          </button>
+          <div className="flex flex-col gap-2 mt-4">
+            <label className="text-sm font-medium text-gray-700">Shuffle Board</label>
+            <div className="grid grid-cols-2 gap-2">
+              {boards.map((board, idx) => (
+                <button
+                  key={board.id}
+                  onClick={() => shuffleSquares(board.id)}
+                  style={{ backgroundColor: colors.buttonBg, color: colors.buttonText }}
+                  className="py-2 px-4 rounded-lg font-bold shadow-md text-xs hover:scale-105 transition-all duration-200"
+                >
+                  Board {idx + 1}
+                </button>
+              ))}
+            </div>
+          </div>
           <hr className="my-4" />
           <div>
             <h3 className="text-lg font-bold mb-2">💾 Save/Load Board</h3>
