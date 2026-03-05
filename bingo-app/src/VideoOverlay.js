@@ -4,17 +4,16 @@ const VideoOverlay = ({ src, onClose }) => {
   return (
     <div
       style={{
-        position: 'absolute',
+        position: 'fixed',
         top: 0,
         left: 0,
-        width: '100%',
-        height: '100%',
+        width: '100vw',
+        height: '100vh',
         backgroundColor: 'rgba(0, 0, 0, 0.9)',
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
         zIndex: 1000,
-        borderRadius: '1rem', // Match the board's border radius
       }}
     >
       <div style={{ position: 'relative', width: '90%', height: '90%' }}>

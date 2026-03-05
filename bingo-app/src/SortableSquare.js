@@ -3,7 +3,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import SquareContextMenu from './SquareContextMenu';
 
-export const SortableSquare = React.memo(({ id, square, index, squareBg, squareBorder, squareText, markedOverlay, bingoImage, overlayOpacity, isEditing, handleTextChange, toggleMarked, boardSize, winningSquareIndices, fontSize, onMoveSquare, onSquareImageUpload, setMessage, isBeingMoved = false }) => {
+export const SortableSquare = React.memo(({ id, square, index, boardId, squareBg, squareBorder, squareText, markedOverlay, bingoImage, overlayOpacity, isEditing, handleTextChange, toggleMarked, boardSize, winningSquareIndices, fontSize, onMoveSquare, onSquareImageUpload, setMessage, isBeingMoved = false }) => {
   const {
     attributes,
     setNodeRef,
@@ -24,6 +24,7 @@ export const SortableSquare = React.memo(({ id, square, index, squareBg, squareB
       <div
         onClick={toggleMarked}
         data-index={index}
+        data-board-id={boardId}
         style={{
           backgroundColor: squareBg,
           borderColor: squareBorder,
@@ -59,6 +60,7 @@ export const SortableSquare = React.memo(({ id, square, index, squareBg, squareB
             value={square.text}
             onChange={handleTextChange}
             data-index={index}
+            data-board-id={boardId}
             style={{ color: squareText, zIndex: 10, fontSize: `${fontSize}em` }}
           />
         ) : (
