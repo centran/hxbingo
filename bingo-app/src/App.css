@@ -44,11 +44,18 @@
   align-items: flex-start;
   gap: 2rem;
   width: 100%;
-  max-width: 1800px;
+  max-width: 1300px; /* Adjusted to fit two 600px boards + gap */
 }
 
 .board-wrapper {
   position: relative;
-  width: 100%;
+  flex: 0 1 600px; /* Do not grow, but can shrink if needed */
   max-width: 600px;
+  min-width: 300px;
+}
+
+@media (max-width: 600px) {
+  .board-wrapper {
+    max-width: 100%;
+  }
 }

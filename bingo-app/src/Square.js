@@ -124,7 +124,7 @@ export const Square = React.memo(({ square, index, boardId, squareBg, squareBord
       <div
         onClick={toggleMarked}
         style={divStyle}
-        className={squareClasses}
+        className={`${squareClasses} bingo-square`}
         data-index={index}
         data-board-id={boardId}
       >
@@ -139,7 +139,7 @@ export const Square = React.memo(({ square, index, boardId, squareBg, squareBord
         )}
         {square.isMarked && !isBattleSquare && (
             <div
-                className="absolute inset-0 rounded-lg"
+                className="absolute inset-0 rounded-lg marker-overlay"
                 style={{backgroundColor: hexToRgba(markedOverlay, overlayOpacity)}}
             ></div>
         )}

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import './App.css';
 import {
   DndContext,
   closestCenter,
@@ -145,6 +146,7 @@ const App = () => {
   const [boardsWinningData, setBoardsWinningData] = useState({});
   const [showConfetti, setShowConfetti] = useState(false);
   const [isBlackout, setIsBlackout] = useState(false);
+  const [hasSeenBlackout, setHasSeenBlackout] = useState(false);
   const [isBattleMode, setIsBattleMode] = useState(false);
   const [isBattleModeLock, setIsBattleModeLock] = useState(false);
   const [battleSquares, setBattleSquares] = useState([]);
@@ -264,7 +266,13 @@ const App = () => {
     const { results: currentResults, globalIsBlackout } = winCheckResults;
 
     if (FEATURES.BLACKOUT_EASTER_EGG_ENABLED) {
-      setIsBlackout(globalIsBlackout);
+      if (globalIsBlackout && !hasSeenBlackout) {
+        setIsBlackout(true);
+        setHasSeenBlackout(true);
+      } else if (!globalIsBlackout) {
+        setIsBlackout(false);
+        setHasSeenBlackout(false);
+      }
     }
 
     let anyNewWin = false;
@@ -425,15 +433,20 @@ const App = () => {
     setBoards(currentBoards => {
       const board = currentBoards.find(b => b.id === boardId);
       if (!board) return currentBoards;
-      const square = board.squares[index];
-      if (!square) return currentBoards;
+      const clickedSquare = board.squares[index];
+      if (!clickedSquare) return currentBoards;
 
-      const newMarkedStatus = !square.isMarked;
-      const searchText = square.text.trim().toLowerCase();
+      const newMarkedStatus = !clickedSquare.isMarked;
+      const searchText = clickedSquare.text.trim().toLowerCase();
 
       return currentBoards.map(b => ({
         ...b,
         squares: b.squares.map(sq => {
+          // If it's the exact square clicked, always toggle it.
+          if (b.id === boardId && sq.id === clickedSquare.id) {
+            return { ...sq, isMarked: newMarkedStatus };
+          }
+          // If it has matching non-empty text, toggle it too.
           if (searchText && sq.text.trim().toLowerCase() === searchText) {
             return { ...sq, isMarked: newMarkedStatus };
           }
@@ -932,11 +945,11 @@ const App = () => {
   }, [message]);
 
   return (
-    <div className="min-h-screen p-8 flex flex-col items-center font-sans" style={{ backgroundColor: colors.boardBg }}>
+    <div className="min-h-screen p-4 md:p-8 flex flex-col items-center font-sans" style={{ backgroundColor: colors.boardBg }}>
       {showConfetti && <Confetti recycle={false} onConfettiComplete={() => setShowConfetti(false)} />}
 
       {/* The BINGO Boards */}
-      <div className="bingo-board-container">
+      <div className="bingo-board-container mb-8">
         {boards.map((board) => (
           <div key={board.id} className="board-wrapper">
             <div className="flex flex-col mb-2">
