@@ -292,7 +292,7 @@ const App = () => {
     }
 
     setBoardsWinningData(currentResults);
-  }, [winCheckResults, boardsWinningData]);
+  }, [winCheckResults, boardsWinningData, hasSeenBlackout]);
 
   // Handler for changing the board dimensions
   const handleBoardSizeChange = (e) => {
@@ -790,7 +790,7 @@ const App = () => {
         setMessage('Could not save board.');
       }
     }
-  }, [bingoImage, boardSize, boards, colors, overlayOpacity, fontSize, isBattleMode, battleSquares, saveToCookie]);
+  }, [bingoImage, boardSize, boards, colors, overlayOpacity, fontSize, isBattleMode, isBattleModeLock, battleSquares, saveToCookie]);
 
   const handleLoad = useCallback(() => {
     if (!saveLoadString) {
