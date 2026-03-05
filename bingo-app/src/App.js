@@ -833,6 +833,7 @@ const App = () => {
     setShowConfetti(false);
     setIsBlackout(false);
     setIsBattleMode(false);
+    setIsBattleModeLock(false);
 
     // Clear the cookie
     document.cookie = 'bingoBoard=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/';
