@@ -44,17 +44,17 @@
   align-items: flex-start;
   gap: 2rem;
   width: 100%;
-  max-width: 1900px; /* Adjusted to fit up to three 600px boards + gaps */
+  max-width: 2400px; /* Adjusted to fit up to three 600px boards + gaps */
 }
 
 .board-wrapper {
   position: relative;
-  flex: 0 1 600px; /* Do not grow, but can shrink if needed */
-  max-width: 600px;
+  flex: 0 1 760px; /* Do not grow, but can shrink if needed */
+  max-width: 760px;
   min-width: 300px;
 }
 
-@media (max-width: 600px) {
+@media (max-width: 760px) {
   .board-wrapper {
     max-width: 100%;
   }
