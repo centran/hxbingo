@@ -3,7 +3,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import SquareContextMenu from './SquareContextMenu';
 
-export const SortableSquare = React.memo(({ id, square, index, boardId, squareBg, squareBorder, squareText, markedOverlay, bingoImage, overlayOpacity, isEditing, handleTextChange, toggleMarked, boardSize, winningSquareIndices, fontSize, onMoveSquare, onSquareImageUpload, setMessage, isBeingMoved = false }) => {
+export const SortableSquare = React.memo(({ id, square, index, boardId, squareBg, squareBorder, squareText, markedOverlay, bingoImage, overlayOpacity, isEditing, handleTextChange, toggleMarked, boardSize, winningSquareIndices, isBattleModeLock, fontSize, onMoveSquare, onSquareImageUpload, setMessage, isBeingMoved = false }) => {
   const {
     attributes,
     setNodeRef,
@@ -50,9 +50,13 @@ export const SortableSquare = React.memo(({ id, square, index, boardId, squareBg
         )}
         {square.isMarked && (
             <div
-                className="absolute inset-0 rounded-lg"
+                className="absolute inset-0 rounded-lg marker-overlay"
                 style={{backgroundColor: markedOverlay, opacity: overlayOpacity}}
-            ></div>
+            >
+              {isBattleModeLock && winningSquareIndices && winningSquareIndices.has(index) && (
+                <div className="absolute top-1 right-1 text-xs" title="Locked">🔒</div>
+              )}
+            </div>
         )}
         {isEditing ? (
           <textarea
