@@ -669,7 +669,7 @@ const App = () => {
 
     try {
       const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+      const model = genAI.getGenerativeModel({ model: 'gemini-flash-latest' });
 
       const prompt = `Generate a list of exactly ${boardSize.rows * boardSize.cols} items related to '${bingoTopic}'. The items should be single-word or short phrases, suitable for a BINGO card. Return ONLY a valid JSON array of strings with no additional text. Example format: ["item1", "item2", "item3"]`;
 
