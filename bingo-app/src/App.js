@@ -284,6 +284,12 @@ const App = () => {
     return { results, globalIsBlackout };
   }, [boards, boardSize, isEditing]);
 
+  useEffect(() => {
+    if (isEditing) {
+      setIsBlackout(false);
+    }
+  }, [isEditing]);
+
   // Effect to check for a win whenever the squares change
   useEffect(() => {
     if (!FEATURES.WIN_DETECTION_ENABLED) return;
@@ -295,7 +301,6 @@ const App = () => {
         setIsBlackout(true);
         setHasSeenBlackout(true);
       } else if (!globalIsBlackout) {
-        setIsBlackout(false);
         setHasSeenBlackout(false);
       }
     }
@@ -986,6 +991,9 @@ const App = () => {
   useEffect(() => {
     if (!isSpinning) return;
 
+    let timeoutId;
+    let intervalId;
+
     const availableSquares = getAvailableMarkedSquares();
 
     if (availableSquares.length === 0) {
@@ -1006,16 +1014,16 @@ const App = () => {
       spinCount++;
       if (spinCount < maxSpins) {
         currentDelay *= 1.2; // Increase delay to slow down
-        setTimeout(spin, currentDelay);
+        timeoutId = setTimeout(spin, currentDelay);
       } else {
         // End of spin, start flashing
         let flashCount = 0;
         const maxFlashes = 10; // 5 flashes on and off
-        const flashInterval = setInterval(() => {
+        intervalId = setInterval(() => {
           setHighlightedIndex(prev => (prev === null ? highlighted.index : null));
           flashCount++;
           if (flashCount >= maxFlashes) {
-            clearInterval(flashInterval);
+            clearInterval(intervalId);
             toggleMarked(highlighted.boardId, highlighted.index);
             setIsSpinning(false);
             setHighlightedIndex(null);
@@ -1028,7 +1036,13 @@ const App = () => {
     };
 
     spin();
-  }, [isSpinning, toggleMarked, getAvailableMarkedSquares]);
+
+    return () => {
+      clearTimeout(timeoutId);
+      clearInterval(intervalId);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSpinning]);
 
   // Effect to automatically clear messages after a delay
   useEffect(() => {
