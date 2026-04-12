@@ -45,6 +45,7 @@ const VideoOverlay = ({ src, onClose }) => {
           controls
           autoPlay
           style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '0.75rem' }}
+          onEnded={onClose}
         />
       </div>
     </div>
