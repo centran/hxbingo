@@ -107,6 +107,23 @@ const defaultColors = {
   markedOverlay: '#d1d5db',
 };
 
+const parseTimeToSeconds = (timeStr) => {
+  if (!timeStr) return 0;
+  const parts = timeStr.split(':');
+  if (parts.length === 2) {
+    const mins = parseInt(parts[0], 10) || 0;
+    const secs = parseInt(parts[1], 10) || 0;
+    return mins * 60 + secs;
+  }
+  return parseInt(timeStr, 10) || 0;
+};
+
+const formatTime = (seconds) => {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+};
+
 const App = () => {
   const fileInputRef = useRef(null);
   const isInitialMount = useRef(true);
@@ -149,6 +166,9 @@ const App = () => {
   const [hasSeenBlackout, setHasSeenBlackout] = useState(false);
   const [isBattleMode, setIsBattleMode] = useState(false);
   const [isBattleModeLock, setIsBattleModeLock] = useState(false);
+  const [battleTimer, setBattleTimer] = useState(0);
+  const [timerRemaining, setTimerRemaining] = useState(0);
+  const [battleTimerInput, setBattleTimerInput] = useState('00:00');
   const [battleSquares, setBattleSquares] = useState([]);
   const [isSpinning, setIsSpinning] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(null);
@@ -210,6 +230,10 @@ const App = () => {
         setIsBattleMode(loadedData.isBattleMode || false);
         setIsBattleModeLock(loadedData.isBattleModeLock || false);
         setBattleSquares(loadedData.battleSquares || []);
+        const loadedTimer = loadedData.battleTimer || 0;
+        setBattleTimer(loadedTimer);
+        setTimerRemaining(loadedTimer);
+        setBattleTimerInput(loadedData.battleTimerInput || formatTime(loadedTimer));
         setMessage('Board loaded successfully!');
       } else {
         throw new Error("Invalid save data structure.");
@@ -376,6 +400,17 @@ const App = () => {
       )
     );
   }, []);
+
+  const handleBattleTimerChange = (e) => {
+    const input = e.target.value;
+    // Allow digits and colon
+    if (!/^[0-9:]*$/.test(input)) return;
+
+    setBattleTimerInput(input);
+    const totalSeconds = parseTimeToSeconds(input);
+    setBattleTimer(totalSeconds);
+    setTimerRemaining(totalSeconds);
+  };
 
   // Function to shuffle the squares array randomly
   const shuffleSquares = (boardId) => {
@@ -754,6 +789,8 @@ const App = () => {
       isBattleMode,
       isBattleModeLock,
       battleSquares,
+      battleTimer,
+      battleTimerInput,
     };
     try {
       const jsonString = JSON.stringify(saveData);
@@ -765,7 +802,7 @@ const App = () => {
     } catch (error) {
       console.error("Failed to save board to cookie:", error);
     }
-  }, [boardSize, boards, colors, overlayOpacity, fontSize, isBattleMode, isBattleModeLock, battleSquares]);
+  }, [boardSize, boards, colors, overlayOpacity, fontSize, isBattleMode, isBattleModeLock, battleSquares, battleTimer, battleTimerInput]);
 
   const handleSave = useCallback((options = {}) => {
     const { showMessage = true } = options;
@@ -781,6 +818,8 @@ const App = () => {
       isBattleMode,
       isBattleModeLock,
       battleSquares,
+      battleTimer,
+      battleTimerInput,
     };
 
     try {
@@ -804,7 +843,7 @@ const App = () => {
         setMessage('Could not save board.');
       }
     }
-  }, [bingoImage, boardSize, boards, colors, overlayOpacity, fontSize, isBattleMode, isBattleModeLock, battleSquares, saveToCookie]);
+  }, [bingoImage, boardSize, boards, colors, overlayOpacity, fontSize, isBattleMode, isBattleModeLock, battleSquares, battleTimer, battleTimerInput, saveToCookie]);
 
   const handleLoad = useCallback(() => {
     if (!saveLoadString) {
@@ -848,6 +887,9 @@ const App = () => {
     setIsBlackout(false);
     setIsBattleMode(false);
     setIsBattleModeLock(false);
+    setBattleTimer(0);
+    setTimerRemaining(0);
+    setBattleTimerInput('00:00');
 
     // Clear the cookie
     document.cookie = 'bingoBoard=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/';
@@ -874,7 +916,7 @@ const App = () => {
     return () => {
       clearTimeout(debouncedSaveToCookie);
     };
-  }, [boards, boardSize, colors, overlayOpacity, fontSize, isBattleMode, isBattleModeLock, battleSquares, saveToCookie]);
+  }, [boards, boardSize, colors, overlayOpacity, fontSize, isBattleMode, isBattleModeLock, battleSquares, battleTimer, battleTimerInput, saveToCookie]);
 
   const getSquareById = useCallback((id) => {
     for (const board of boards) {
@@ -916,11 +958,30 @@ const App = () => {
 
     if (availableSquares.length === 0) {
       setMessage('No available squares to remove!');
+      if (!isEditing && isBattleMode && battleTimer > 0) {
+        setTimerRemaining(battleTimer);
+      }
       return;
     }
 
     setIsSpinning(true);
-  }, [isEditing, isSpinning, getAvailableMarkedSquares]);
+  }, [isEditing, isSpinning, isBattleMode, battleTimer, getAvailableMarkedSquares]);
+
+  useEffect(() => {
+    if (isEditing || !isBattleMode || battleTimer <= 0 || isSpinning) return;
+
+    const timer = setInterval(() => {
+      setTimerRemaining(prev => {
+        if (prev <= 1) {
+          handleBattleSquareClick();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [isEditing, isBattleMode, battleTimer, isSpinning, handleBattleSquareClick]);
 
   useEffect(() => {
     if (!isSpinning) return;
@@ -960,6 +1021,7 @@ const App = () => {
             setHighlightedIndex(null);
             setHighlightedBoardId(null);
             setMessage('A marked square has been removed!');
+            setTimerRemaining(battleTimer);
           }
         }, 150);
       }
@@ -982,6 +1044,16 @@ const App = () => {
   return (
     <div className="min-h-screen p-4 md:p-8 flex flex-col items-center font-sans" style={{ backgroundColor: colors.boardBg }}>
       {showConfetti && <Confetti recycle={false} onConfettiComplete={() => setShowConfetti(false)} />}
+
+      {/* Battle Timer Display */}
+      {!isEditing && isBattleMode && battleTimer > 0 && (
+        <div className="fixed top-4 right-4 z-50 bg-white border-2 rounded-xl p-3 shadow-lg flex items-center gap-3" style={{ borderColor: colors.squareBorder }}>
+          <div className="text-sm font-bold text-gray-500 uppercase tracking-wider">Battle Timer</div>
+          <div className={`text-3xl font-mono font-bold ${timerRemaining <= 10 ? 'text-red-500 animate-pulse' : 'text-indigo-600'}`}>
+            {formatTime(timerRemaining)}
+          </div>
+        </div>
+      )}
 
       {/* The BINGO Boards */}
       <div className="bingo-board-container mb-8">
@@ -1211,18 +1283,31 @@ const App = () => {
             </div>
           )}
           {FEATURES.BATTLE_MODE_ENABLED && isBattleMode && (
-            <div className="flex items-center justify-center mb-4">
-              <label htmlFor="battle-mode-lock-toggle" className="flex items-center cursor-pointer">
-                <div className="relative">
-                  <input type="checkbox" id="battle-mode-lock-toggle" className="sr-only" checked={isBattleModeLock} onChange={() => setIsBattleModeLock(!isBattleModeLock)} />
-                  <div className="block bg-gray-700 w-14 h-8 rounded-full"></div>
-                  <div className="dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition"></div>
-                </div>
-                <div className="ml-3 text-gray-700 font-medium">
-                  Lock Winning Squares
-                </div>
-              </label>
-            </div>
+            <>
+              <div className="flex items-center justify-center mb-4">
+                <label htmlFor="battle-mode-lock-toggle" className="flex items-center cursor-pointer">
+                  <div className="relative">
+                    <input type="checkbox" id="battle-mode-lock-toggle" className="sr-only" checked={isBattleModeLock} onChange={() => setIsBattleModeLock(!isBattleModeLock)} />
+                    <div className="block bg-gray-700 w-14 h-8 rounded-full"></div>
+                    <div className="dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition"></div>
+                  </div>
+                  <div className="ml-3 text-gray-700 font-medium">
+                    Lock Winning Squares
+                  </div>
+                </label>
+              </div>
+              <div className="mb-4">
+                <label htmlFor="battle-timer-input" className="block text-sm font-medium text-gray-700">Battle Timer (MM:SS)</label>
+                <input
+                  id="battle-timer-input"
+                  type="text"
+                  value={battleTimerInput}
+                  onChange={handleBattleTimerChange}
+                  placeholder="00:00"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 transition ease-in-out"
+                />
+              </div>
+            </>
           )}
           <div>
             <label className="block text-sm font-medium text-gray-700">Board Size</label>
@@ -1346,7 +1431,7 @@ const App = () => {
       </div>
 
       {message && (
-        <div className="fixed top-4 right-4 bg-green-500 text-white py-2 px-4 rounded-xl shadow-lg transition-transform duration-300">
+        <div className="fixed bottom-4 right-4 bg-green-500 text-white py-2 px-4 rounded-xl shadow-lg transition-transform duration-300 z-[100]">
           {message}
         </div>
       )}
