@@ -98,13 +98,13 @@ const generateEmptyBoard = (rows, cols, boardId = 1) => {
 };
 
 const defaultColors = {
-  boardBg: '#ffffff',
-  squareBg: '#f3f4f6',
-  squareText: '#1f2937',
-  squareBorder: '#d1d5db',
-  buttonBg: '#4f46e5',
+  boardBg: '#131414',
+  squareBg: '#1e2021',
+  squareText: '#ffffff',
+  squareBorder: '#343638',
+  buttonBg: '#3f3e5e',
   buttonText: '#ffffff',
-  markedOverlay: '#d1d5db',
+  markedOverlay: '#4fa907',
 };
 
 const parseTimeToSeconds = (timeStr) => {
@@ -147,7 +147,7 @@ const App = () => {
   const [colors, setColors] = useState(defaultColors);
 
   // State for the overlay opacity
-  const [overlayOpacity, setOverlayOpacity] = useState(0.8);
+  const [overlayOpacity, setOverlayOpacity] = useState(0.6);
   const [fontSize, setFontSize] = useState(1.8);
   // Default font size: two steps down from max (max 2, step 0.1 => 2 - 0.2 = 1.8)
   // State for the user-provided topic for AI-generated squares
@@ -169,6 +169,7 @@ const App = () => {
   const [battleTimer, setBattleTimer] = useState(0);
   const [timerRemaining, setTimerRemaining] = useState(0);
   const [battleTimerInput, setBattleTimerInput] = useState('00:00');
+  const [isTimerRunning, setIsTimerRunning] = useState(true);
   const [battleSquares, setBattleSquares] = useState([]);
   const [isSpinning, setIsSpinning] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(null);
@@ -232,8 +233,9 @@ const App = () => {
         setBattleSquares(loadedData.battleSquares || []);
         const loadedTimer = loadedData.battleTimer || 0;
         setBattleTimer(loadedTimer);
-        setTimerRemaining(loadedTimer);
+        setTimerRemaining(loadedData.timerRemaining !== undefined ? loadedData.timerRemaining : loadedTimer);
         setBattleTimerInput(loadedData.battleTimerInput || formatTime(loadedTimer));
+        setIsTimerRunning(loadedData.isTimerRunning !== undefined ? loadedData.isTimerRunning : true);
         setMessage('Board loaded successfully!');
       } else {
         throw new Error("Invalid save data structure.");
@@ -796,6 +798,8 @@ const App = () => {
       battleSquares,
       battleTimer,
       battleTimerInput,
+      timerRemaining,
+      isTimerRunning,
     };
     try {
       const jsonString = JSON.stringify(saveData);
@@ -825,6 +829,8 @@ const App = () => {
       battleSquares,
       battleTimer,
       battleTimerInput,
+      timerRemaining,
+      isTimerRunning,
     };
 
     try {
@@ -895,6 +901,7 @@ const App = () => {
     setBattleTimer(0);
     setTimerRemaining(0);
     setBattleTimerInput('00:00');
+    setIsTimerRunning(true);
 
     // Clear the cookie
     document.cookie = 'bingoBoard=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/';
@@ -973,7 +980,7 @@ const App = () => {
   }, [isEditing, isSpinning, isBattleMode, battleTimer, getAvailableMarkedSquares]);
 
   useEffect(() => {
-    if (isEditing || !isBattleMode || battleTimer <= 0 || isSpinning) return;
+    if (isEditing || !isBattleMode || battleTimer <= 0 || isSpinning || !isTimerRunning) return;
 
     const timer = setInterval(() => {
       setTimerRemaining(prev => {
@@ -986,7 +993,7 @@ const App = () => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [isEditing, isBattleMode, battleTimer, isSpinning, handleBattleSquareClick]);
+  }, [isEditing, isBattleMode, battleTimer, isSpinning, isTimerRunning, handleBattleSquareClick]);
 
   useEffect(() => {
     if (!isSpinning) return;
@@ -1061,10 +1068,28 @@ const App = () => {
 
       {/* Battle Timer Display */}
       {!isEditing && isBattleMode && battleTimer > 0 && (
-        <div className="fixed top-4 right-4 z-50 bg-white border-2 rounded-xl p-3 shadow-lg flex items-center gap-3" style={{ borderColor: colors.squareBorder }}>
-          <div className="text-sm font-bold text-gray-500 uppercase tracking-wider">Battle Timer</div>
-          <div className={`text-3xl font-mono font-bold ${timerRemaining <= 10 ? 'text-red-500 animate-pulse' : 'text-indigo-600'}`}>
-            {formatTime(timerRemaining)}
+        <div className="fixed top-4 right-4 z-50 bg-white border-2 rounded-xl p-3 shadow-lg flex items-center gap-4" style={{ borderColor: colors.squareBorder }}>
+          <div className="flex flex-col">
+            <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider leading-none mb-1">Battle Timer</div>
+            <div className={`text-3xl font-mono font-bold leading-none ${timerRemaining <= 10 ? 'text-red-500 animate-pulse' : 'text-indigo-600'}`}>
+              {formatTime(timerRemaining)}
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setIsTimerRunning(!isTimerRunning)}
+              className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors text-xl shadow-sm"
+              title={isTimerRunning ? 'Pause' : 'Start'}
+            >
+              {isTimerRunning ? '⏸' : '▶'}
+            </button>
+            <button
+              onClick={() => setTimerRemaining(battleTimer)}
+              className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors text-xl shadow-sm"
+              title="Reset"
+            >
+              🔄
+            </button>
           </div>
         </div>
       )}
