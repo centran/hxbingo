@@ -98,13 +98,13 @@ const generateEmptyBoard = (rows, cols, boardId = 1) => {
 };
 
 const defaultColors = {
-  boardBg: '#ffffff',
-  squareBg: '#f3f4f6',
-  squareText: '#1f2937',
-  squareBorder: '#d1d5db',
-  buttonBg: '#4f46e5',
+  boardBg: '#131414',
+  squareBg: '#1e2021',
+  squareText: '#ffffff',
+  squareBorder: '#343638',
+  buttonBg: '#3f3e5e',
   buttonText: '#ffffff',
-  markedOverlay: '#d1d5db',
+  markedOverlay: '#4fa907',
 };
 
 const parseTimeToSeconds = (timeStr) => {
@@ -147,7 +147,7 @@ const App = () => {
   const [colors, setColors] = useState(defaultColors);
 
   // State for the overlay opacity
-  const [overlayOpacity, setOverlayOpacity] = useState(0.8);
+  const [overlayOpacity, setOverlayOpacity] = useState(0.6);
   const [fontSize, setFontSize] = useState(1.8);
   // Default font size: two steps down from max (max 2, step 0.1 => 2 - 0.2 = 1.8)
   // State for the user-provided topic for AI-generated squares
