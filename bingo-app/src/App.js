@@ -1062,6 +1062,9 @@ const App = () => {
     }
   }, [message]);
 
+  const isYellowPulse = timerRemaining >= 11 && timerRemaining <= 20;
+  const isRedPulse = timerRemaining < 11;
+
   return (
     <div className="min-h-screen p-4 md:p-8 flex flex-col items-center font-sans" style={{ backgroundColor: colors.boardBg }}>
       {showConfetti && <Confetti recycle={false} onConfettiComplete={() => setShowConfetti(false)} />}
@@ -1072,8 +1075,8 @@ const App = () => {
           <div className="flex flex-col">
             <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider leading-none mb-1">Battle Timer</div>
             <div
-              className={`text-3xl font-mono font-bold leading-none ${timerRemaining <= 10 ? 'text-red-500 animate-pulse' : ''}`}
-              style={{ color: timerRemaining <= 10 ? undefined : colors.squareText }}
+              className={`text-3xl font-mono font-bold leading-none ${isRedPulse ? 'text-red-500 animate-pulse' : isYellowPulse ? 'text-yellow-400 animate-pulse' : ''}`}
+              style={{ color: isRedPulse || isYellowPulse ? undefined : colors.squareText }}
             >
               {formatTime(timerRemaining)}
             </div>
