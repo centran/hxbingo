@@ -1062,30 +1062,38 @@ const App = () => {
     }
   }, [message]);
 
+  const isYellowPulse = timerRemaining >= 11 && timerRemaining <= 20;
+  const isRedPulse = timerRemaining < 11;
+
   return (
     <div className="min-h-screen p-4 md:p-8 flex flex-col items-center font-sans" style={{ backgroundColor: colors.boardBg }}>
       {showConfetti && <Confetti recycle={false} onConfettiComplete={() => setShowConfetti(false)} />}
 
       {/* Battle Timer Display */}
       {!isEditing && isBattleMode && battleTimer > 0 && (
-        <div className="fixed top-4 right-4 z-50 bg-white border-2 rounded-xl p-3 shadow-lg flex items-center gap-4" style={{ borderColor: colors.squareBorder }}>
+        <div className="fixed top-4 right-4 z-50 border-2 rounded-xl p-3 shadow-[0_10px_25px_-5px_rgba(0,0,0,0.3)] flex items-center gap-4" style={{ borderColor: colors.squareBorder, backgroundColor: colors.squareBg }}>
           <div className="flex flex-col">
             <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider leading-none mb-1">Battle Timer</div>
-            <div className={`text-3xl font-mono font-bold leading-none ${timerRemaining <= 10 ? 'text-red-500 animate-pulse' : 'text-indigo-600'}`}>
+            <div
+              className={`text-3xl font-mono font-bold leading-none ${isRedPulse ? 'text-red-500 animate-pulse' : isYellowPulse ? 'text-yellow-400 animate-pulse' : ''}`}
+              style={{ color: isRedPulse || isYellowPulse ? undefined : colors.squareText }}
+            >
               {formatTime(timerRemaining)}
             </div>
           </div>
           <div className="flex gap-2">
             <button
               onClick={() => setIsTimerRunning(!isTimerRunning)}
-              className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors text-xl shadow-sm"
+              className="w-10 h-10 flex items-center justify-center rounded-full transition-all text-xl shadow-sm hover:scale-110 active:scale-95"
+              style={{ backgroundColor: colors.buttonBg, color: colors.buttonText }}
               title={isTimerRunning ? 'Pause' : 'Start'}
             >
               {isTimerRunning ? '⏸' : '▶'}
             </button>
             <button
               onClick={() => setTimerRemaining(battleTimer)}
-              className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors text-xl shadow-sm"
+              className="w-10 h-10 flex items-center justify-center rounded-full transition-all text-xl shadow-sm hover:scale-110 active:scale-95"
+              style={{ backgroundColor: colors.buttonBg, color: colors.buttonText }}
               title="Reset"
             >
               🔄
