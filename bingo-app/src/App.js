@@ -1336,7 +1336,7 @@ const App = () => {
                 </label>
               </div>
               <div className="mb-4">
-                <label htmlFor="battle-timer-input" className="block text-sm font-medium text-gray-700">Battle Timer (MM:SS)</label>
+                <label htmlFor="battle-timer-input" className="block text-sm font-medium text-gray-700">Battle Timer (seconds or mm:ss)</label>
                 <input
                   id="battle-timer-input"
                   type="text"
